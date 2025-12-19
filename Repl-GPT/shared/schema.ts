@@ -1,0 +1,194 @@
+import { sql } from "drizzle-orm";
+import { pgTable, text, varchar, integer, bigint, boolean, timestamp, jsonb, numeric } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  isReviewer: boolean("is_reviewer").notNull().default(false),
+  isHubPoster: boolean("is_hub_poster").notNull().default(false),
+});
+
+export const insertUserSchema = createInsertSchema(users).pick({
+  username: true,
+  password: true,
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
+// HiveMind Tables
+
+export const tracks = pgTable("tracks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const questions = pgTable("questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trackId: varchar("track_id").references(() => tracks.id),
+  text: text("text").notNull(),
+  options: jsonb("options").notNull().$type<string[]>(),
+  correctIndex: integer("correct_index").notNull(),
+  complexity: integer("complexity").notNull(), // 1-5
+  isBenchmark: boolean("is_benchmark").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const phrases = pgTable("phrases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  normalized: text("normalized").notNull().unique(),
+  redacted: text("redacted").notNull(),
+  globalMentions: integer("global_mentions").notNull().default(0),
+  trackMentions: jsonb("track_mentions").notNull().$type<Record<string, number>>().default({}),
+  lastCycleCounted: integer("last_cycle_counted"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const cycles = pgTable("cycles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cycleNumber: integer("cycle_number").notNull().unique(),
+  startDate: timestamp("start_date").notNull().defaultNow(),
+  endDate: timestamp("end_date"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const trainAttempts = pgTable("train_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  trackId: varchar("track_id").references(() => tracks.id),
+  difficulty: text("difficulty").notNull(), // "low" | "medium" | "high" | "extreme"
+  cost: numeric("cost", { precision: 18, scale: 8 }).notNull(),
+  content: text("content").notNull(),
+  status: text("status").notNull().default("pending"), // "pending" | "approved" | "rejected"
+  evidencePacket: jsonb("evidence_packet").$type<Record<string, any>>(),
+  cycleId: varchar("cycle_id").references(() => cycles.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+});
+
+export const reviews = pgTable("reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  attemptId: varchar("attempt_id").notNull().references(() => trainAttempts.id),
+  reviewerId: varchar("reviewer_id").notNull().references(() => users.id),
+  vote: text("vote").notNull(), // "approve" | "reject"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const locks = pgTable("locks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  attemptId: varchar("attempt_id").references(() => trainAttempts.id),
+  amount: numeric("amount", { precision: 18, scale: 8 }).notNull(),
+  originalAmount: numeric("original_amount", { precision: 18, scale: 8 }).notNull(),
+  cycleCreated: integer("cycle_created").notNull(),
+  cyclesRemaining: integer("cycles_remaining").notNull(),
+  unlockedAt: timestamp("unlocked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const modelVersions = pgTable("model_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  versionNumber: integer("version_number").notNull().unique(),
+  cycleId: varchar("cycle_id").references(() => cycles.id),
+  isActive: boolean("is_active").notNull().default(false),
+  datasetSize: integer("dataset_size").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  activatedAt: timestamp("activated_at"),
+});
+
+export const benchmarks = pgTable("benchmarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  modelVersionId: varchar("model_version_id").references(() => modelVersions.id),
+  previousModelVersionId: varchar("previous_model_version_id").references(() => modelVersions.id),
+  score: numeric("score", { precision: 10, scale: 2 }).notNull(),
+  previousScore: numeric("previous_score", { precision: 10, scale: 2 }),
+  scoreDrop: numeric("score_drop", { precision: 10, scale: 2 }),
+  wasRolledBack: boolean("was_rolled_back").notNull().default(false),
+  quarantinedCycleId: varchar("quarantined_cycle_id").references(() => cycles.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const hubPosts = pgTable("hub_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  posterId: varchar("poster_id").references(() => users.id),
+  content: text("content").notNull(),
+  cycleId: varchar("cycle_id").references(() => cycles.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const hubSubmissions = pgTable("hub_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  content: text("content").notNull(),
+  fee: numeric("fee", { precision: 18, scale: 8 }).notNull(),
+  status: text("status").notNull().default("pending"), // "pending" | "approved" | "rejected"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+});
+
+// Training Pool (global state)
+export const trainingPool = pgTable("training_pool", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  amount: numeric("amount", { precision: 18, scale: 8 }).notNull().default("0"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Training Corpus Items - the canonical dataset the official HiveMind AI learns from
+export const trainingCorpusItems = pgTable("training_corpus_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trackId: varchar("track_id").notNull().references(() => tracks.id),
+  cycleId: varchar("cycle_id").notNull().references(() => cycles.id),
+  normalizedText: text("normalized_text").notNull(),
+  sourceAttemptId: varchar("source_attempt_id").references(() => trainAttempts.id),
+  approvedAt: timestamp("approved_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Chat messages for the official HiveMind AI
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address").notNull(),
+  trackId: varchar("track_id").references(() => tracks.id),
+  aiLevel: integer("ai_level").notNull(),
+  userMessage: text("user_message").notNull(),
+  aiResponse: text("ai_response").notNull(),
+  corpusItemsUsed: jsonb("corpus_items_used").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Types
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type Track = typeof tracks.$inferSelect;
+export type Question = typeof questions.$inferSelect;
+export type Phrase = typeof phrases.$inferSelect;
+export type Cycle = typeof cycles.$inferSelect;
+export type TrainAttempt = typeof trainAttempts.$inferSelect;
+export type Review = typeof reviews.$inferSelect;
+export type Lock = typeof locks.$inferSelect;
+export type ModelVersion = typeof modelVersions.$inferSelect;
+export type Benchmark = typeof benchmarks.$inferSelect;
+export type HubPost = typeof hubPosts.$inferSelect;
+export type HubSubmission = typeof hubSubmissions.$inferSelect;
+export type TrainingPool = typeof trainingPool.$inferSelect;
+export type TrainingCorpusItem = typeof trainingCorpusItems.$inferSelect;
+
+// Insert schemas
+export const insertTrackSchema = createInsertSchema(tracks).omit({ id: true, createdAt: true });
+export type InsertTrack = z.infer<typeof insertTrackSchema>;
+
+export const insertCycleSchema = createInsertSchema(cycles).omit({ id: true, createdAt: true });
+export type InsertCycle = z.infer<typeof insertCycleSchema>;
+
+export const insertTrainingCorpusItemSchema = createInsertSchema(trainingCorpusItems).omit({ id: true, createdAt: true });
+export type InsertTrainingCorpusItem = z.infer<typeof insertTrainingCorpusItemSchema>;
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ id: true, createdAt: true });
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
