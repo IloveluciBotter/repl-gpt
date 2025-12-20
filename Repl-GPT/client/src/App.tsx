@@ -6,6 +6,7 @@ import { TrainPage } from "@/pages/TrainPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { CorpusPage } from "@/pages/CorpusPage";
 import { CorpusAdminPage } from "@/pages/CorpusAdminPage";
+import StatusPage from "@/pages/StatusPage";
 import { useWallet } from "@/hooks/useWallet";
 import { useIntelligence } from "@/hooks/useIntelligence";
 
@@ -83,6 +84,10 @@ function App() {
             >
               <CorpusAdminPage isCreator={wallet.isCreator} />
             </TokenGate>
+          </Route>
+
+          <Route path="/status">
+            <StatusPage />
           </Route>
 
           <Route>

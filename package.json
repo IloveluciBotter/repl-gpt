@@ -10,6 +10,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@sentry/node": "^10.32.1",
+    "@sentry/react": "^10.32.1",
     "@types/uuid": "^10.0.0",
     "express-rate-limit": "^8.2.1",
     "pino": "^10.1.0",

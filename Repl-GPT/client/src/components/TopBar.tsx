@@ -1,5 +1,6 @@
 import { ArrowLeft, Wallet, Brain, Coins } from "lucide-react";
 import { useLocation } from "wouter";
+import { StatusIndicator } from "./StatusIndicator";
 
 interface TopBarProps {
   intelligenceLevel: number;
@@ -53,6 +54,8 @@ export function TopBar({
         </div>
 
         <div className="flex items-center gap-4">
+          <StatusIndicator compact />
+          
           <div className="flex items-center gap-2 bg-gray-800 px-3 py-1.5 rounded-lg">
             <Brain className="w-4 h-4 text-purple-400" />
             <span className="text-sm font-medium">

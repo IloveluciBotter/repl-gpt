@@ -1,0 +1,140 @@
+We have:
+
+nonce-based auth + server sessions ✅
+
+rate limiting + request IDs + audit logs ✅
+
+Now implement Phase 3 reliability signals so the app never “silently works” and users can trust system state.
+
+A) Health endpoints (standardize + expand)
+
+We already have: /api/health, /api/health/ollama, /api/ai/ollama/health
+
+Make /api/health return a single JSON object like:
+
+status: "ok" | "degraded" | "down"
+
+timestamp
+
+version (git SHA if available, else app version)
+
+services:
+
+db: ok/down + latencyMs
+
+ollama: ok/down + baseUrl + latencyMs
+
+helius (or RPC provider used for balance): ok/down + latencyMs
+
+objectStorage (if configured): ok/down + latencyMs
+
+uptimeSec
+
+Add /api/health/ready (readiness)
+
+returns 200 only if DB is reachable AND core config is present (required env vars)
+
+returns 503 if not ready
+
+Add /api/health/live (liveness)
+
+always returns 200 if the server process is running
+
+B) “No silent fallbacks” (production behavior)
+
+Identify anywhere the app currently falls back (example: AI chat fallback responses or local stub).
+
+Add a single config flag:
+
+ALLOW_AI_FALLBACK default:
+
+false in production
+
+true in development
+
+When Ollama is down and fallback is disallowed:
+
+Return HTTP 503
+
+JSON: { error: "ai_unavailable", message: "AI service is offline", requestId }
+
+Also ensure:
+
+All errors include requestId
+
+Never swallow errors: log + Sentry capture (see section D)
+
+C) Frontend status indicators (visible trust signals)
+
+Add a small always-visible status area in the UI (header or top bar):
+
+“AI: Online / Offline”
+
+“RPC: Online / Offline” (Helius/balance provider)
+
+Optional “DB” should NOT be exposed on client unless via /api/health aggregate (safe status only)
+
+Behavior:
+
+Frontend polls /api/health every 30–60 seconds (with backoff if failing).
+
+If AI is offline:
+
+Chat page shows a clear banner + disables send (or allows but returns 503 cleanly)
+
+Add a dedicated “Status” page route:
+
+/status
+
+Shows service statuses + last check time + requestId if failed
+
+D) Sentry (backend + frontend)
+
+Implement Sentry with environment-based config:
+
+SENTRY_DSN required to enable
+
+SENTRY_ENVIRONMENT (dev/staging/prod)
+
+capture:
+
+unhandled exceptions
+
+Express error middleware
+
+requestId as a tag
+
+walletAddress (only if authenticated; do NOT log signatures/nonces)
+
+Frontend:
+
+capture route errors + network failures
+
+attach requestId from response headers when present
+
+E) Uptime check friendly
+
+Ensure /api/health/live is fast and does NOT depend on DB/Ollama.
+Ensure /api/health/ready is what uptime monitors should use for “is it actually usable”.
+
+Deliverable (after implementation)
+
+Return:
+
+Files changed/added
+
+New env vars required + defaults
+
+Exact /api/health JSON schema you implemented (example response)
+
+How to test:
+
+simulate Ollama down
+
+confirm 503 + requestId + UI banner
+
+confirm fallback behavior differs dev vs prod
+
+Confirm Sentry captures errors (how to verify quickly)
+
+Implement now.

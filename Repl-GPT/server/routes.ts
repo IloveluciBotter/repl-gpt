@@ -29,6 +29,8 @@ import {
 } from "./middleware/rateLimit";
 import { createAuditHelper } from "./services/audit";
 import { logger } from "./middleware/logger";
+import { getFullHealth, isReady, isLive, isAiFallbackAllowed } from "./services/health";
+import { captureError } from "./sentry";
 
 // Helper to get user ID from session (simplified - you may want to add proper auth)
 function getUserId(req: Request): string | null {
@@ -83,12 +85,34 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Health check
-  app.get("/api/health", (req: Request, res: Response) => {
-    res.json({ status: "ok" });
+  app.get("/api/health", async (req: Request, res: Response) => {
+    try {
+      const health = await getFullHealth();
+      const statusCode = health.status === "down" ? 503 : 200;
+      res.status(statusCode).json(health);
+    } catch (error: any) {
+      captureError(error, { requestId: req.requestId });
+      res.status(500).json({ 
+        status: "down", 
+        error: error.message,
+        requestId: req.requestId 
+      });
+    }
   });
 
-  // Ollama health check (primary endpoint)
+  app.get("/api/health/ready", async (req: Request, res: Response) => {
+    const ready = await isReady();
+    if (ready) {
+      res.status(200).json({ status: "ready" });
+    } else {
+      res.status(503).json({ status: "not_ready", requestId: req.requestId });
+    }
+  });
+
+  app.get("/api/health/live", (req: Request, res: Response) => {
+    res.status(200).json({ status: "alive" });
+  });
+
   app.get("/api/health/ollama", async (req: Request, res: Response) => {
     try {
       const { checkOllamaHealth } = await import("./aiChat");
@@ -634,9 +658,19 @@ export async function registerRoutes(
         corpusItemsUsed = result.corpusItemsUsed;
       } catch (error: any) {
         logger.error({ requestId: req.requestId, error: "[AI Chat] Ollama error", details: error.message });
-        return res.status(503).json({ 
-          error: error.message || "Official AI is offline" 
-        });
+        captureError(error, { requestId: req.requestId, walletAddress: publicKey });
+        
+        if (!isAiFallbackAllowed()) {
+          return res.status(503).json({ 
+            error: "ai_unavailable",
+            message: "AI service is offline",
+            requestId: req.requestId
+          });
+        }
+        
+        response = `[Development Mode] AI service is currently offline. Your message was: "${body.message.slice(0, 100)}${body.message.length > 100 ? '...' : ''}"`;
+        corpusItemsUsed = [];
+        logger.warn({ requestId: req.requestId, message: "Using fallback AI response in development mode" });
       }
       
       // Save to chat history

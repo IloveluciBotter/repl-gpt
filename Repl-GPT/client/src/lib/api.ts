@@ -1,3 +1,5 @@
+import { captureError } from "./sentry";
+
 const API_BASE = "";
 
 async function fetchApi<T>(
@@ -14,8 +16,17 @@ async function fetchApi<T>(
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(error.error || error.message || "Request failed");
+    const errorBody = await res.json().catch(() => ({ error: res.statusText }));
+    const requestId = res.headers.get("x-request-id") || errorBody.requestId;
+    const errorMessage = errorBody.message || errorBody.error || "Request failed";
+    
+    const error = new Error(errorMessage);
+    captureError(error, {
+      requestId,
+      extra: { endpoint, status: res.status, errorBody },
+    });
+    
+    throw error;
   }
 
   return res.json();

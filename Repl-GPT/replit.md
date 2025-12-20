@@ -36,6 +36,9 @@ Preferred communication style: Simple, everyday language.
   - Corpus/review: 20/min/wallet
 - **Structured Logging**: JSON logs via pino with request IDs, wallet addresses, and IP hashes
 - **Audit Logging**: Database table tracking sensitive actions (logins, submissions, reviews, corpus changes, admin actions)
+- **Health Monitoring**: `/api/health` aggregated status, `/api/health/ready` for readiness, `/api/health/live` for liveness
+- **Error Tracking**: Sentry integration (optional, requires `SENTRY_DSN`)
+- **AI Fallback Control**: `ALLOW_AI_FALLBACK` controls fallback behavior (default: false in production)
 
 ### Data Storage
 - **Game State**: localStorage for client-side persistence (intelligence level, scores, sessions)
@@ -81,6 +84,13 @@ Preferred communication style: Simple, everyday language.
 ### Database
 - **PostgreSQL**: Required via `DATABASE_URL` environment variable
 - **ORM**: Drizzle ORM with drizzle-kit for migrations
+
+### Environment Variables (New in Phase 3)
+- `SENTRY_DSN`: Sentry DSN for error tracking (optional)
+- `SENTRY_ENVIRONMENT`: Sentry environment (dev/staging/prod)
+- `VITE_SENTRY_DSN`: Frontend Sentry DSN
+- `VITE_SENTRY_ENVIRONMENT`: Frontend Sentry environment
+- `ALLOW_AI_FALLBACK`: Allow AI fallback responses (default: false in production, true in development)
 
 ### UI/Design
 - **Fonts**: DM Sans, Fira Code, Geist Mono via Google Fonts

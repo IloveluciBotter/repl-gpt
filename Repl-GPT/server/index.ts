@@ -5,6 +5,9 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { requestIdMiddleware } from "./middleware/requestId";
 import { httpLogger, logger } from "./middleware/logger";
+import { initSentry, sentryErrorHandler, captureError } from "./sentry";
+
+initSentry();
 
 const app = express();
 const httpServer = createServer(app);
@@ -36,6 +39,8 @@ export function log(message: string, source = "express") {
 (async () => {
   await registerRoutes(httpServer, app);
 
+  app.use(sentryErrorHandler());
+  
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -47,7 +52,13 @@ export function log(message: string, source = "express") {
       status,
     });
 
-    res.status(status).json({ message });
+    captureError(err, {
+      requestId: req.requestId,
+      walletAddress: (req as any).walletAddress,
+      extra: { path: req.path, method: req.method },
+    });
+
+    res.status(status).json({ error: message, requestId: req.requestId });
   });
 
   // importantly only setup vite in development and after
