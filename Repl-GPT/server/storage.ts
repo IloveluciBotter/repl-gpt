@@ -33,6 +33,7 @@ import {
   chatMessages,
   authNonces,
   sessions,
+  auditLogs,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, gte, lte, isNull, gt } from "drizzle-orm";
@@ -172,6 +173,17 @@ export interface IStorage {
   revokeSession(id: string): Promise<void>;
   revokeAllUserSessions(walletAddress: string): Promise<void>;
   cleanupExpiredSessions(): Promise<void>;
+
+  // Audit log operations
+  createAuditLog(data: {
+    action: string;
+    walletAddress?: string;
+    targetType?: string;
+    targetId?: string;
+    metadata?: Record<string, any>;
+    requestId: string;
+    ipHash?: string;
+  }): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -790,6 +802,27 @@ export class DbStorage implements IStorage {
   async cleanupExpiredSessions(): Promise<void> {
     const now = new Date();
     await db.delete(sessions).where(lte(sessions.expiresAt, now));
+  }
+
+  // Audit log operations
+  async createAuditLog(data: {
+    action: string;
+    walletAddress?: string;
+    targetType?: string;
+    targetId?: string;
+    metadata?: Record<string, any>;
+    requestId: string;
+    ipHash?: string;
+  }): Promise<void> {
+    await db.insert(auditLogs).values({
+      action: data.action,
+      walletAddress: data.walletAddress,
+      targetType: data.targetType,
+      targetId: data.targetId,
+      metadata: data.metadata,
+      requestId: data.requestId,
+      ipHash: data.ipHash,
+    });
   }
 }
 

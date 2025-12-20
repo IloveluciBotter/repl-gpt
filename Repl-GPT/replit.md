@@ -28,6 +28,14 @@ Preferred communication style: Simple, everyday language.
   - Atomic nonce consumption prevents concurrent verification exploits
   - Session tokens stored as SHA-256 hashes in PostgreSQL
   - 7-day session expiry with httpOnly cookies
+- **Rate Limiting**: Per-endpoint rate limits (IP-based for unauthenticated, wallet-based for authenticated)
+  - Auth nonce/verify: 10/min/IP
+  - Public read endpoints: 60/min/IP
+  - Chat: 30/min/wallet + 60/min/IP
+  - Submissions: 60/min/wallet
+  - Corpus/review: 20/min/wallet
+- **Structured Logging**: JSON logs via pino with request IDs, wallet addresses, and IP hashes
+- **Audit Logging**: Database table tracking sensitive actions (logins, submissions, reviews, corpus changes, admin actions)
 
 ### Data Storage
 - **Game State**: localStorage for client-side persistence (intelligence level, scores, sessions)

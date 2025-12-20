@@ -185,7 +185,21 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Audit Logs - for tracking sensitive actions
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address"),
+  action: varchar("action").notNull(), // login_success, login_failure, submission_created, review_vote, corpus_change, cosmetic_purchase, admin_action
+  targetType: varchar("target_type"), // corpus_item, submission, review_vote, cosmetic, user, session
+  targetId: varchar("target_id"),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  requestId: varchar("request_id").notNull(),
+  ipHash: varchar("ip_hash"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Types
+export type AuditLog = typeof auditLogs.$inferSelect;
 export type AuthNonce = typeof authNonces.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;

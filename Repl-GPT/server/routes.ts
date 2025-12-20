@@ -17,6 +17,18 @@ import {
   getPublicAppDomain,
   revokeSession,
 } from "./auth";
+import {
+  authNonceLimiter,
+  authVerifyLimiter,
+  publicReadLimiter,
+  chatLimiterWallet,
+  chatLimiterIp,
+  submitLimiter,
+  corpusLimiter,
+  reviewLimiter,
+} from "./middleware/rateLimit";
+import { createAuditHelper } from "./services/audit";
+import { logger } from "./middleware/logger";
 
 // Helper to get user ID from session (simplified - you may want to add proper auth)
 function getUserId(req: Request): string | null {
@@ -113,7 +125,7 @@ export async function registerRoutes(
   // ===== AUTHENTICATION =====
   
   // Nonce endpoint - generates a secure, single-use nonce for wallet authentication
-  app.get("/api/auth/nonce", async (req: Request, res: Response) => {
+  app.get("/api/auth/nonce", authNonceLimiter, async (req: Request, res: Response) => {
     try {
       const wallet = req.query.wallet as string;
       if (!wallet || wallet.length < 32) {
@@ -123,13 +135,13 @@ export async function registerRoutes(
       const { nonce, message, expiresAt } = await issueNonce(wallet);
       res.json({ nonce, message, expiresAt: expiresAt.toISOString() });
     } catch (error) {
-      console.error("Nonce generation error:", error);
+      logger.error({ requestId: req.requestId, error: "Nonce generation error", details: error });
       res.status(500).json({ error: "Failed to generate nonce" });
     }
   });
 
   // Legacy challenge endpoint (redirects to nonce)
-  app.get("/api/auth/challenge", async (req: Request, res: Response) => {
+  app.get("/api/auth/challenge", authNonceLimiter, async (req: Request, res: Response) => {
     try {
       const publicKey = req.query.publicKey as string;
       if (!publicKey || publicKey.length < 32) {
@@ -139,7 +151,7 @@ export async function registerRoutes(
       const { nonce, message, expiresAt } = await issueNonce(publicKey);
       res.json({ nonce, message, expiresAt: expiresAt.toISOString() });
     } catch (error) {
-      console.error("Challenge generation error:", error);
+      logger.error({ requestId: req.requestId, error: "Challenge generation error", details: error });
       res.status(500).json({ error: "Failed to generate challenge" });
     }
   });
@@ -153,7 +165,8 @@ export async function registerRoutes(
     message: "Either wallet or publicKey is required",
   });
 
-  app.post("/api/auth/verify", async (req: Request, res: Response) => {
+  app.post("/api/auth/verify", authVerifyLimiter, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
     try {
       const body = verifySchema.parse(req.body);
       const walletAddress = body.wallet || body.publicKey!;
@@ -161,6 +174,11 @@ export async function registerRoutes(
       // Consume nonce (single-use, validates expiry)
       const nonceResult = await consumeNonce(walletAddress, body.nonce);
       if (!nonceResult.valid || !nonceResult.message) {
+        await audit.log("login_failure", {
+          targetType: "session",
+          metadata: { reason: "invalid_nonce", wallet: walletAddress },
+          overrideWallet: walletAddress,
+        });
         return res.status(400).json({ 
           error: nonceResult.error || "Invalid or expired nonce",
           code: "INVALID_NONCE"
@@ -170,6 +188,11 @@ export async function registerRoutes(
       // Verify signature against the exact server-generated message
       const isValid = await verifySignature(walletAddress, body.signature, nonceResult.message);
       if (!isValid) {
+        await audit.log("login_failure", {
+          targetType: "session",
+          metadata: { reason: "invalid_signature", wallet: walletAddress },
+          overrideWallet: walletAddress,
+        });
         return res.status(401).json({ error: "Invalid signature", code: "INVALID_SIGNATURE" });
       }
 
@@ -185,27 +208,34 @@ export async function registerRoutes(
         path: "/",
       });
 
+      await audit.log("login_success", {
+        targetType: "session",
+        overrideWallet: walletAddress,
+      });
+
       res.json({ ok: true, expiresAt: expiresAt.toISOString() });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors, code: "VALIDATION_ERROR" });
       }
-      console.error("Auth verify error:", error);
+      logger.error({ requestId: req.requestId, error: "Auth verify error", details: error });
       res.status(500).json({ error: "Failed to verify authentication" });
     }
   });
 
   // Logout endpoint
   app.post("/api/auth/logout", requireAuthMiddleware, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
     try {
       const sessionId = (req as any).sessionId;
       if (sessionId) {
         await revokeSession(sessionId);
       }
+      await audit.log("logout", { targetType: "session" });
       res.clearCookie("sid", { path: "/" });
       res.json({ ok: true });
     } catch (error) {
-      console.error("Logout error:", error);
+      logger.error({ requestId: req.requestId, error: "Logout error", details: error });
       res.status(500).json({ error: "Failed to logout" });
     }
   });
@@ -248,7 +278,7 @@ export async function registerRoutes(
   });
 
   // ===== TRACKS & QUESTIONS =====
-  app.get("/api/tracks", async (req: Request, res: Response) => {
+  app.get("/api/tracks", publicReadLimiter, async (req: Request, res: Response) => {
     try {
       const tracks = await storage.getAllTracks();
       res.json(tracks);
@@ -257,7 +287,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/tracks/:trackId/questions", async (req: Request, res: Response) => {
+  app.get("/api/tracks/:trackId/questions", publicReadLimiter, async (req: Request, res: Response) => {
     try {
       const questions = await storage.getQuestionsByTrack(req.params.trackId);
       res.json(questions);
@@ -266,7 +296,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/benchmark-questions", async (req: Request, res: Response) => {
+  app.get("/api/benchmark-questions", publicReadLimiter, async (req: Request, res: Response) => {
     try {
       const questions = await storage.getBenchmarkQuestions();
       res.json(questions);
@@ -276,7 +306,7 @@ export async function registerRoutes(
   });
 
   // ===== CYCLES =====
-  app.get("/api/cycles/current", async (req: Request, res: Response) => {
+  app.get("/api/cycles/current", publicReadLimiter, async (req: Request, res: Response) => {
     try {
       const cycle = await storage.getCurrentCycle();
       res.json(cycle);
@@ -286,6 +316,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/cycles/rollover", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
     try {
       const currentCycle = await storage.getCurrentCycle();
       const nextCycleNumber = currentCycle ? currentCycle.cycleNumber + 1 : 1;
@@ -346,9 +377,19 @@ export async function registerRoutes(
         await storage.activateModelVersion(newModel.id);
       }
       
+      await audit.log("cycle_rollover", {
+        targetType: "cycle",
+        targetId: newCycle.id,
+        metadata: { 
+          previousCycleId: currentCycle?.id, 
+          cycleNumber: nextCycleNumber,
+          modelVersionId: newModel.id,
+        },
+      });
+      
       res.json({ cycle: newCycle, model: newModel, benchmark });
     } catch (error) {
-      console.error("Cycle rollover error:", error);
+      logger.error({ requestId: req.requestId, error: "Cycle rollover error", details: error });
       res.status(500).json({ error: "Failed to rollover cycle" });
     }
   });
@@ -446,7 +487,8 @@ export async function registerRoutes(
     sourceAttemptId: z.string().optional(),
   });
 
-  app.post("/api/corpus", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.post("/api/corpus", requireAuthMiddleware, requireCreator, corpusLimiter, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
     try {
       const body = addCorpusItemSchema.parse(req.body);
       const currentCycle = await storage.getCurrentCycle();
@@ -464,12 +506,18 @@ export async function registerRoutes(
         sourceAttemptId: body.sourceAttemptId,
       });
       
+      await audit.log("corpus_item_added", {
+        targetType: "corpus_item",
+        targetId: item.id,
+        metadata: { trackId: body.trackId, cycleId: currentCycle.id },
+      });
+      
       res.json(item);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
-      console.error("Add corpus item error:", error);
+      logger.error({ requestId: req.requestId, error: "Add corpus item error", details: error });
       res.status(500).json({ error: "Failed to add corpus item" });
     }
   });
@@ -480,7 +528,8 @@ export async function registerRoutes(
     trackId: z.string().optional(),
   });
 
-  app.put("/api/corpus/:id", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.put("/api/corpus/:id", requireAuthMiddleware, requireCreator, corpusLimiter, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
     try {
       const body = updateCorpusItemSchema.parse(req.body);
       
@@ -506,23 +555,35 @@ export async function registerRoutes(
       if (!item) {
         return res.status(404).json({ error: "Corpus item not found" });
       }
+      
+      await audit.log("corpus_item_updated", {
+        targetType: "corpus_item",
+        targetId: req.params.id,
+        metadata: { trackId: body.trackId },
+      });
+      
       res.json(item);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
-      console.error("Update corpus item error:", error);
+      logger.error({ requestId: req.requestId, error: "Update corpus item error", details: error });
       res.status(500).json({ error: "Failed to update corpus item" });
     }
   });
 
   // Delete corpus item (Creator only)
-  app.delete("/api/corpus/:id", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.delete("/api/corpus/:id", requireAuthMiddleware, requireCreator, corpusLimiter, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
     try {
+      await audit.log("corpus_item_deleted", {
+        targetType: "corpus_item",
+        targetId: req.params.id,
+      });
       await storage.deleteCorpusItem(req.params.id);
       res.json({ success: true });
     } catch (error) {
-      console.error("Delete corpus item error:", error);
+      logger.error({ requestId: req.requestId, error: "Delete corpus item error", details: error });
       res.status(500).json({ error: "Failed to delete corpus item" });
     }
   });
@@ -540,7 +601,7 @@ export async function registerRoutes(
     aiLevel: z.number().int().min(1).max(100),
   });
 
-  app.post("/api/ai/chat", requireAuthMiddleware, requireHiveAccess, async (req: Request, res: Response) => {
+  app.post("/api/ai/chat", requireAuthMiddleware, requireHiveAccess, chatLimiterWallet, chatLimiterIp, async (req: Request, res: Response) => {
     try {
       const body = chatMessageSchema.parse(req.body);
       const publicKey = (req as any).publicKey;
@@ -572,7 +633,7 @@ export async function registerRoutes(
         response = result.response;
         corpusItemsUsed = result.corpusItemsUsed;
       } catch (error: any) {
-        console.error("[AI Chat] Ollama error:", error.message);
+        logger.error({ requestId: req.requestId, error: "[AI Chat] Ollama error", details: error.message });
         return res.status(503).json({ 
           error: error.message || "Official AI is offline" 
         });
@@ -599,7 +660,7 @@ export async function registerRoutes(
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
-      console.error("AI chat error:", error);
+      logger.error({ requestId: req.requestId, error: "AI chat error", details: error });
       res.status(500).json({ error: "Failed to generate response" });
     }
   });
@@ -624,7 +685,8 @@ export async function registerRoutes(
     content: z.string().min(1),
   });
 
-  app.post("/api/train-attempts/submit", requireAuthMiddleware, requireHiveAccess, async (req: Request, res: Response) => {
+  app.post("/api/train-attempts/submit", requireAuthMiddleware, requireHiveAccess, submitLimiter, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
     // For backward compatibility, try to get userId from old system
     // In the future, you may want to link wallet addresses to user accounts
     const userId = (req as any).userId || (req as any).publicKey || null;
@@ -660,12 +722,18 @@ export async function registerRoutes(
       // Update evidence packet
       await storage.updateAttemptStatus(attempt.id, attempt.status as "approved" | "rejected", evidencePacket);
       
+      await audit.log("submission_created", {
+        targetType: "submission",
+        targetId: attempt.id,
+        metadata: { trackId: body.trackId, difficulty: body.difficulty, cycleId: currentCycle.id },
+      });
+      
       res.json(attempt);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
-      console.error("Submit attempt error:", error);
+      logger.error({ requestId: req.requestId, error: "Submit attempt error", details: error });
       res.status(500).json({ error: "Failed to submit attempt" });
     }
   });
@@ -709,7 +777,8 @@ export async function registerRoutes(
     vote: z.enum(["approve", "reject"]),
   });
 
-  app.post("/api/reviews/submit", async (req: Request, res: Response) => {
+  app.post("/api/reviews/submit", reviewLimiter, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
     const reviewerId = await requireReviewer(req, res);
     if (!reviewerId) return;
     
@@ -732,6 +801,12 @@ export async function registerRoutes(
       }
       
       const review = await storage.createReview(body.attemptId, reviewerId, body.vote);
+      
+      await audit.log("review_vote", {
+        targetType: "review",
+        targetId: review.id,
+        metadata: { attemptId: body.attemptId, vote: body.vote },
+      });
       
       // Check consensus
       const consensus = await storage.checkReviewConsensus(body.attemptId, attempt.difficulty);

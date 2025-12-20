@@ -1,0 +1,127 @@
+REPLIT TASK: PHASE 2 — ABUSE PROTECTION + TRACEABILITY (WRITE CODE + APPLY CHANGES)
+
+Nonce auth + sessions are complete. Now implement Phase 2: Rate limiting + request IDs + audit logs.
+
+A) Request IDs (trace every request)
+
+Add middleware that generates a requestId for every incoming request (UUID or secure random).
+
+Put it on:
+
+req.requestId
+
+response header: x-request-id: <id>
+
+Ensure every log line includes { requestId }.
+
+B) Structured logging (JSON logs)
+
+Switch logs to structured JSON (pino/winston) or standardize existing logger.
+
+For each request, log:
+
+requestId
+
+method, path
+
+status code
+
+duration_ms
+
+walletAddress (if authenticated)
+
+ip (or hashed ip)
+
+Log errors with stack + requestId.
+
+C) Rate limiting (per endpoint + per IP + per wallet)
+
+Implement rate limiting for these routes:
+
+Unauthenticated (IP-based)
+
+GET /api/auth/nonce → very strict (ex: 10/min/IP)
+
+POST /api/auth/verify → strict (ex: 10/min/IP)
+
+Any public “read” endpoints → moderate (ex: 60/min/IP)
+
+Authenticated (wallet + IP)
+
+/api/chat* → moderate (ex: 30/min/wallet + 60/min/IP)
+
+quiz/answers submit endpoint(s) → moderate/strict (ex: 60/min/wallet)
+
+corpus submit/review endpoints → strict (ex: 20/min/wallet)
+
+Requirements:
+
+If user is logged in, limiter must key primarily by walletAddress, with IP as a secondary guard.
+
+If not logged in, limiter keys by IP only.
+
+Return 429 with JSON: { error: "rate_limited", retryAfterSec: <n> }
+
+Add standard rate limit headers (or equivalent) so it feels professional.
+
+Implementation guidance:
+
+Use a limiter library that works now in Replit (in-memory store is OK).
+
+If Redis is available/configured, use Redis-backed store automatically (optional but preferred).
+
+Make limits configurable via env vars.
+
+D) Audit log table (who did what, when)
+
+Add an audit_logs table and write entries for sensitive actions:
+
+Table fields (minimum):
+
+id
+
+createdAt
+
+walletAddress (nullable)
+
+action (string enum-ish)
+
+targetType (e.g., "corpus_item", "submission", "review_vote", "cosmetic")
+
+targetId (nullable)
+
+metadata JSON (reason, trackId, cycleId, etc.)
+
+requestId
+
+ipHash (privacy-safe)
+
+Log at least:
+
+login success/failure
+
+submission created
+
+review vote cast + reason
+
+corpus admin changes
+
+cosmetics purchase/equip
+
+any “creator/admin” actions
+
+Deliverable (after implementation)
+
+Return:
+
+Files changed/added
+
+New env vars (if any)
+
+Exact limits you applied per route
+
+How to test (include how to trigger a 429)
+
+Confirm every sensitive action now writes an audit log row
+
+Implement now.
