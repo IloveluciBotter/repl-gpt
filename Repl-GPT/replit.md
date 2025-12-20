@@ -23,6 +23,11 @@ Preferred communication style: Simple, everyday language.
 - **Language**: TypeScript with ESM modules
 - **Build**: esbuild for production bundling with selective dependency bundling
 - **Static Serving**: Express serves Vite-built frontend from `dist/public`
+- **Authentication**: Secure nonce-based Solana wallet authentication with server-side sessions
+  - Domain-bound message format prevents cross-domain replay attacks
+  - Atomic nonce consumption prevents concurrent verification exploits
+  - Session tokens stored as SHA-256 hashes in PostgreSQL
+  - 7-day session expiry with httpOnly cookies
 
 ### Data Storage
 - **Game State**: localStorage for client-side persistence (intelligence level, scores, sessions)
