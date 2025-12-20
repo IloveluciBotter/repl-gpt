@@ -124,6 +124,9 @@ export const api = {
           title: string | null;
           normalizedText: string;
           status: "draft" | "approved" | "rejected";
+          embedStatus: "not_embedded" | "queued" | "embedding" | "embedded" | "failed";
+          embedError: string | null;
+          embedAttempts: number;
           createdByWallet: string | null;
           approvedAt: string | null;
           createdAt: string;
@@ -160,6 +163,37 @@ export const api = {
     delete: (id: string) =>
       fetchApi<{ success: boolean }>(`/api/corpus/${id}`, {
         method: "DELETE",
+      }),
+
+    getEmbedStatus: () =>
+      fetchApi<{
+        counts: Record<string, number>;
+        failedItems: Array<{
+          id: string;
+          title: string | null;
+          embedError: string | null;
+          embedAttempts: number;
+          updatedAt: string;
+        }>;
+        queuedItems: Array<{
+          id: string;
+          title: string | null;
+          createdAt: string;
+        }>;
+        embeddingItems: Array<{
+          id: string;
+          title: string | null;
+        }>;
+      }>("/api/corpus/embed-status"),
+
+    retryEmbed: (id: string) =>
+      fetchApi<{ success: boolean; message: string }>(`/api/corpus/${id}/retry-embed`, {
+        method: "POST",
+      }),
+
+    forceReembed: (id: string) =>
+      fetchApi<{ success: boolean; message: string }>(`/api/corpus/${id}/force-reembed`, {
+        method: "POST",
       }),
   },
 
