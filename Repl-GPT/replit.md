@@ -80,7 +80,7 @@ Preferred communication style: Simple, everyday language.
 - **On-Chain Verification**: Deposits are verified via Solana RPC to prevent fraud
   - Validates transaction exists and succeeded
   - Confirms transfer destination is the configured vault
-  - Verifies token mint matches HIVE token
+  - Verifies token mint matches HIVE token (supports SPL Token and Token-2022)
   - Ensures sender wallet matches authenticated user
 - **Fee Reserve/Settle**: Training fees are reserved upfront and settled based on score
   - Perfect score (100%): 0% cost (full refund)
@@ -88,6 +88,12 @@ Preferred communication style: Simple, everyday language.
   - Fail (<70%): 100% cost
 - **Difficulty Fees**: Fees scale by difficulty (low: 0.5x, medium: 1x, high: 2x, extreme: 4x base fee)
 - **Rewards Pool**: Failed training fees route to rewards pool for distribution
+- **Settlement Transaction Invariants** (server/services/settlement.ts):
+  - All operations wrapped in `db.transaction()` for atomic commit/rollback
+  - `SELECT FOR UPDATE` on wallet_balances row prevents concurrent settlements
+  - Unique index on stake_ledger (attempt_id, reason) prevents duplicate entries
+  - Preflight checks detect already-settled attempts and return early
+  - `ON CONFLICT DO NOTHING` on ledger inserts provides defense-in-depth
 - **Database Tables**: wallet_balances, stake_ledger, rewards_pool
 - **Environment Variables**:
   - ECON_BASE_FEE_HIVE: Base fee amount (default: 1)
