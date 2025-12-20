@@ -48,6 +48,7 @@ export function TrainPage({
   const [userAnswers, setUserAnswers] = useState<number[]>([]);
   const [autoReviewResult, setAutoReviewResult] = useState<AutoReviewResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [sessionComplete, setSessionComplete] = useState(false);
 
   useEffect(() => {
     api.tracks.getAll().then((data) => {
@@ -60,6 +61,7 @@ export function TrainPage({
     setLoading(true);
     setSelectedTrack(trackId);
     setAutoReviewResult(null);
+    setSessionComplete(false);
     try {
       const data = await api.tracks.getQuestions(trackId);
       const shuffled = data.sort(() => Math.random() - 0.5).slice(0, 10);
@@ -112,11 +114,14 @@ export function TrainPage({
   };
 
   const nextQuestion = async () => {
+    if (submitting) return;
+    
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((i) => i + 1);
       setSelectedAnswer(null);
       setShowResult(false);
     } else {
+      setSessionComplete(true);
       await submitTrainingAttempt();
     }
   };
@@ -126,6 +131,7 @@ export function TrainPage({
     setQuestions([]);
     setAutoReviewResult(null);
     setUserAnswers([]);
+    setSessionComplete(false);
   };
 
   const currentQuestion = questions[currentIndex];
@@ -179,7 +185,7 @@ export function TrainPage({
     );
   }
 
-  if (!currentQuestion || autoReviewResult) {
+  if (sessionComplete || (!currentQuestion && questions.length > 0)) {
     const scorePctDisplay = autoReviewResult 
       ? Math.round(autoReviewResult.scorePct * 100) 
       : (score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0);

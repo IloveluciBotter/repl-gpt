@@ -877,6 +877,13 @@ export async function registerRoutes(
         attemptDurationSec,
       });
       
+      // Log submission creation
+      await audit.log("submission_created", {
+        targetType: "submission",
+        targetId: attempt.id,
+        metadata: { trackId: body.trackId, difficulty: body.difficulty, cycleId: currentCycle.id },
+      });
+      
       // Apply auto-review logic
       const autoReviewConfig = getAutoReviewConfig();
       const reviewResult = computeAutoReview(scorePct, attemptDurationSec, autoReviewConfig);
