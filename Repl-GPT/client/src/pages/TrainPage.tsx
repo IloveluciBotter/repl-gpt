@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { CheckCircle, XCircle, Brain, Zap, Clock, Award, AlertTriangle, Coins, TrendingDown, TrendingUp } from "lucide-react";
+import { CheckCircle, XCircle, Brain, Zap, Clock, Award, AlertTriangle, Coins, TrendingDown, TrendingUp, Plus } from "lucide-react";
+import { StakeModal } from "@/components/StakeModal";
 
 interface TrainPageProps {
   intelligenceLevel: number;
@@ -71,6 +72,7 @@ export function TrainPage({
   const [stakeHive, setStakeHive] = useState<number>(0);
   const [economyConfig, setEconomyConfig] = useState<EconomyConfig | null>(null);
   const [stakeError, setStakeError] = useState<string | null>(null);
+  const [showStakeModal, setShowStakeModal] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -209,14 +211,20 @@ export function TrainPage({
                 AI Level: {intelligenceLevel}
               </span>
             </div>
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
-              hasInsufficientStake ? "bg-red-900/30" : "bg-green-900/30"
-            }`}>
+            <button
+              onClick={() => setShowStakeModal(true)}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
+                hasInsufficientStake 
+                  ? "bg-red-900/30 hover:bg-red-900/50" 
+                  : "bg-green-900/30 hover:bg-green-900/50"
+              }`}
+            >
               <Coins className={`w-5 h-5 ${hasInsufficientStake ? "text-red-400" : "text-green-400"}`} />
               <span className={`font-medium ${hasInsufficientStake ? "text-red-400" : "text-green-400"}`}>
                 {stakeHive.toFixed(2)} HIVE
               </span>
-            </div>
+              <Plus className="w-4 h-4 text-gray-400" />
+            </button>
           </div>
           <h1 className="text-3xl font-bold mb-2">Train Your AI</h1>
           <p className="text-gray-400">
@@ -237,11 +245,20 @@ export function TrainPage({
         )}
 
         {hasInsufficientStake && !stakeError && (
-          <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4 mb-6 flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
-            <p className="text-yellow-300">
-              You need at least {currentFee} HIVE staked to train. Deposit more HIVE to continue.
-            </p>
+          <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4 mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+              <p className="text-yellow-300">
+                You need at least {currentFee} HIVE staked to train. Deposit more HIVE to continue.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowStakeModal(true)}
+              className="bg-yellow-600 hover:bg-yellow-500 text-black font-medium px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Stake HIVE
+            </button>
           </div>
         )}
 
@@ -271,6 +288,14 @@ export function TrainPage({
             ))}
           </div>
         )}
+        
+        <StakeModal
+          isOpen={showStakeModal}
+          onClose={() => setShowStakeModal(false)}
+          currentStake={stakeHive}
+          requiredFee={currentFee}
+          onStakeUpdated={(newStake) => setStakeHive(newStake)}
+        />
       </div>
     );
   }

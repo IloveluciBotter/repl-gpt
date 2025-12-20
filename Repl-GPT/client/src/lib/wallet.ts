@@ -10,6 +10,8 @@ declare global {
         message: Uint8Array,
         encoding: string
       ) => Promise<{ signature: Uint8Array }>;
+      signTransaction: <T>(transaction: T) => Promise<T>;
+      signAndSendTransaction: <T>(transaction: T) => Promise<{ signature: string }>;
       publicKey?: { toString: () => string };
       isConnected?: boolean;
       on: (event: string, callback: () => void) => void;
