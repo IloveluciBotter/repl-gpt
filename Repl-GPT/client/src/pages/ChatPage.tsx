@@ -1,9 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/lib/api";
-import { Send, Bot, User, AlertCircle, History } from "lucide-react";
+import { Send, Bot, User, AlertCircle, History, ChevronDown, ChevronUp, BookOpen } from "lucide-react";
 
 interface ChatPageProps {
   intelligenceLevel: number;
+}
+
+interface Source {
+  chunkText: string;
+  score: number;
+  title: string | null;
 }
 
 interface Message {
@@ -11,6 +17,8 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp?: string;
+  sources?: Source[];
+  isGrounded?: boolean;
 }
 
 export function ChatPage({ intelligenceLevel }: ChatPageProps) {
@@ -20,11 +28,24 @@ export function ChatPage({ intelligenceLevel }: ChatPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Message[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [ollamaStatus, setOllamaStatus] = useState<{
     ok: boolean;
     error?: string;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const toggleSources = (messageId: string) => {
+    setExpandedSources(prev => {
+      const next = new Set(prev);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     api.health.ollamaCheck().then(setOllamaStatus).catch(() => {
@@ -64,6 +85,8 @@ export function ChatPage({ intelligenceLevel }: ChatPageProps) {
         id: response.id,
         role: "assistant",
         content: response.response,
+        sources: response.sources || [],
+        isGrounded: response.isGrounded,
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (err: any) {
@@ -177,14 +200,61 @@ export function ChatPage({ intelligenceLevel }: ChatPageProps) {
                   <Bot className="w-4 h-4" />
                 )}
               </div>
-              <div
-                className={`max-w-[70%] rounded-xl p-4 ${
-                  message.role === "user"
-                    ? "bg-blue-600"
-                    : "bg-gray-800"
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{message.content}</p>
+              <div className="max-w-[70%]">
+                <div
+                  className={`rounded-xl p-4 ${
+                    message.role === "user"
+                      ? "bg-blue-600"
+                      : "bg-gray-800"
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                </div>
+                
+                {message.role === "assistant" && message.sources && message.sources.length > 0 && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => toggleSources(message.id)}
+                      className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                    >
+                      <BookOpen className="w-3 h-3" />
+                      <span>{message.sources.length} source{message.sources.length > 1 ? "s" : ""}</span>
+                      {expandedSources.has(message.id) ? (
+                        <ChevronUp className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
+                    
+                    {expandedSources.has(message.id) && (
+                      <div className="mt-2 space-y-2">
+                        {message.sources.map((source, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-purple-400 font-medium">
+                                {source.title || `Source ${idx + 1}`}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {Math.round(source.score * 100)}% match
+                              </span>
+                            </div>
+                            <p className="text-gray-400 text-xs">{source.chunkText}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {message.role === "assistant" && message.isGrounded === false && (
+                  <div className="mt-1 text-xs text-yellow-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Ungrounded response
+                  </div>
+                )}
               </div>
             </div>
           ))}

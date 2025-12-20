@@ -119,9 +119,13 @@ export const api = {
       return fetchApi<{
         items: Array<{
           id: string;
-          trackId: string;
-          cycleId: string;
+          trackId: string | null;
+          cycleId: string | null;
+          title: string | null;
           normalizedText: string;
+          status: "draft" | "approved" | "rejected";
+          createdByWallet: string | null;
+          approvedAt: string | null;
           createdAt: string;
         }>;
         pagination: {
@@ -167,6 +171,8 @@ export const api = {
         corpusItemsUsed: number;
         aiLevel: number;
         track?: string;
+        sources: Array<{ chunkText: string; score: number; title: string | null }>;
+        isGrounded: boolean;
       }>("/api/ai/chat", {
         method: "POST",
         body: JSON.stringify({ message, aiLevel, track }),

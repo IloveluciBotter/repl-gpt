@@ -161,12 +161,12 @@ export const trainingCorpusItems = pgTable("training_corpus_items", {
 });
 
 // Corpus Chunks - chunked text with vector embeddings for RAG
+// Note: embedding column uses pgvector(1024) - managed via raw SQL
 export const corpusChunks = pgTable("corpus_chunks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   corpusItemId: varchar("corpus_item_id").notNull().references(() => trainingCorpusItems.id),
   chunkIndex: integer("chunk_index").notNull(),
   chunkText: text("chunk_text").notNull(),
-  embedding: text("embedding"), // JSON array of floats (pgvector handled separately)
   embeddingModel: text("embedding_model"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

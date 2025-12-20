@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { Search, Database, FileText } from "lucide-react";
+import { Search, Database, FileText, CheckCircle2, Clock, XCircle } from "lucide-react";
 
 interface CorpusItem {
   id: string;
-  trackId: string;
-  cycleId: string;
+  trackId: string | null;
+  cycleId: string | null;
+  title: string | null;
   normalizedText: string;
+  status: "draft" | "approved" | "rejected";
+  createdByWallet: string | null;
+  approvedAt: string | null;
   createdAt: string;
 }
 
@@ -145,12 +149,34 @@ export function CorpusPage({ authenticated, hasAccess }: CorpusPageProps) {
                 key={item.id}
                 className="bg-gray-800 rounded-lg p-4 border border-gray-700"
               >
-                <p className="text-gray-200">{item.normalizedText}</p>
+                <div className="flex items-start justify-between gap-4 mb-2">
+                  {item.title && (
+                    <h3 className="font-medium text-purple-400">{item.title}</h3>
+                  )}
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs shrink-0 ${
+                    item.status === "approved" 
+                      ? "bg-green-900/50 text-green-400"
+                      : item.status === "rejected"
+                      ? "bg-red-900/50 text-red-400"
+                      : "bg-yellow-900/50 text-yellow-400"
+                  }`}>
+                    {item.status === "approved" && <CheckCircle2 className="w-3 h-3" />}
+                    {item.status === "rejected" && <XCircle className="w-3 h-3" />}
+                    {item.status === "draft" && <Clock className="w-3 h-3" />}
+                    <span className="capitalize">{item.status}</span>
+                  </div>
+                </div>
+                <p className="text-gray-200 text-sm">{item.normalizedText.slice(0, 300)}{item.normalizedText.length > 300 ? "..." : ""}</p>
                 <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                  <span>Track: {item.trackId.slice(0, 8)}...</span>
+                  {item.trackId && <span>Track: {item.trackId.slice(0, 8)}...</span>}
                   <span>
                     Added: {new Date(item.createdAt).toLocaleDateString()}
                   </span>
+                  {item.approvedAt && (
+                    <span className="text-green-500">
+                      Approved: {new Date(item.approvedAt).toLocaleDateString()}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

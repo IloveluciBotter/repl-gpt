@@ -1,9 +1,9 @@
 import { logger } from "../middleware/logger";
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "https://ollama.com";
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "https://ollama.replit.dev";
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
-const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || "gemma3:4b";
-const EMBEDDING_DIMENSION = 768;
+const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || "nomic-embed-text";
+const EMBEDDING_DIMENSION = 1024;
 
 export interface EmbeddingResult {
   embedding: number[];

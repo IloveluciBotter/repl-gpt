@@ -57,7 +57,7 @@ export async function embedCorpusItem(corpusItemId: string): Promise<number> {
       });
 
       await db.execute(
-        sql`UPDATE corpus_chunks SET embedding_vec = ${embeddingJson}::vector WHERE corpus_item_id = ${corpusItemId} AND chunk_index = ${i}`
+        sql`UPDATE corpus_chunks SET embedding = ${embeddingJson}::vector WHERE corpus_item_id = ${corpusItemId} AND chunk_index = ${i}`
       );
 
       embeddedCount++;
@@ -88,15 +88,15 @@ export async function searchCorpus(
           cc.id,
           cc.corpus_item_id as "corpusItemId",
           cc.chunk_text as "chunkText",
-          1 - (cc.embedding_vec <=> ${embeddingStr}::vector) as score,
+          1 - (cc.embedding <=> ${embeddingStr}::vector) as score,
           tci.track_id as "trackId",
           tci.title
         FROM corpus_chunks cc
         JOIN training_corpus_items tci ON cc.corpus_item_id = tci.id
         WHERE tci.status = 'approved'
           AND tci.track_id = ${trackId}
-          AND cc.embedding_vec IS NOT NULL
-        ORDER BY cc.embedding_vec <=> ${embeddingStr}::vector
+          AND cc.embedding IS NOT NULL
+        ORDER BY cc.embedding <=> ${embeddingStr}::vector
         LIMIT ${k}
       `
     );
@@ -107,14 +107,14 @@ export async function searchCorpus(
           cc.id,
           cc.corpus_item_id as "corpusItemId",
           cc.chunk_text as "chunkText",
-          1 - (cc.embedding_vec <=> ${embeddingStr}::vector) as score,
+          1 - (cc.embedding <=> ${embeddingStr}::vector) as score,
           tci.track_id as "trackId",
           tci.title
         FROM corpus_chunks cc
         JOIN training_corpus_items tci ON cc.corpus_item_id = tci.id
         WHERE tci.status = 'approved'
-          AND cc.embedding_vec IS NOT NULL
-        ORDER BY cc.embedding_vec <=> ${embeddingStr}::vector
+          AND cc.embedding IS NOT NULL
+        ORDER BY cc.embedding <=> ${embeddingStr}::vector
         LIMIT ${k}
       `
     );
