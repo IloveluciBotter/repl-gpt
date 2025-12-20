@@ -7,6 +7,7 @@ import { requestIdMiddleware } from "./middleware/requestId";
 import { httpLogger, logger } from "./middleware/logger";
 import { initSentry, sentryErrorHandler, captureError } from "./sentry";
 import { startTelemetryJobs } from "./services/telemetryJobs";
+import { startEmbedWorker } from "./services/embedWorker";
 
 initSentry();
 
@@ -41,6 +42,7 @@ export function log(message: string, source = "express") {
   await registerRoutes(httpServer, app);
   
   startTelemetryJobs();
+  startEmbedWorker();
 
   app.use(sentryErrorHandler());
   

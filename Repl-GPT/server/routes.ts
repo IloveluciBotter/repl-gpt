@@ -681,6 +681,14 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Corpus item not found" });
       }
       
+      if (normalizedText && item.status === "approved") {
+        const { checkAndQueueOnEdit } = await import("./services/embedWorker");
+        const requeued = await checkAndQueueOnEdit(req.params.id, item.title, normalizedText);
+        if (requeued) {
+          logger.info({ requestId: req.requestId, corpusItemId: req.params.id, message: "Content changed, re-queued for embedding" });
+        }
+      }
+      
       await audit.log("corpus_item_updated", {
         targetType: "corpus_item",
         targetId: req.params.id,
@@ -784,10 +792,67 @@ export async function registerRoutes(
         targetId: req.params.id,
       });
       
-      res.json({ success: true, message: "Corpus item approved and embedded" });
+      res.json({ success: true, message: "Corpus item approved and queued for embedding" });
     } catch (error: any) {
       logger.error({ requestId: req.requestId, error: "Approval error", details: error.message });
       res.status(500).json({ error: "Failed to approve corpus item" });
+    }
+  });
+
+  // ===== EMBED STATUS ADMIN ENDPOINTS =====
+
+  app.get("/api/corpus/embed-status", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+    try {
+      const { getEmbedStatusSummary, getItemsByEmbedStatus } = await import("./services/embedWorker");
+      const summary = await getEmbedStatusSummary();
+      
+      const status = req.query.status as string | undefined;
+      let items: any[] = [];
+      
+      if (status && ["not_embedded", "queued", "embedding", "embedded", "failed"].includes(status)) {
+        items = await getItemsByEmbedStatus(status as any);
+      }
+      
+      res.json({ summary, items });
+    } catch (error: any) {
+      logger.error({ requestId: req.requestId, error: "Embed status error", details: error.message });
+      res.status(500).json({ error: "Failed to get embed status" });
+    }
+  });
+
+  app.post("/api/corpus/:id/retry-embed", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
+    try {
+      const { retryEmbedding } = await import("./services/embedWorker");
+      await retryEmbedding(req.params.id);
+      
+      await audit.log("corpus_embed_retry", {
+        targetType: "corpus_item",
+        targetId: req.params.id,
+      });
+      
+      res.json({ success: true, message: "Corpus item reset for retry" });
+    } catch (error: any) {
+      logger.error({ requestId: req.requestId, error: "Retry embed error", details: error.message });
+      res.status(400).json({ error: error.message || "Failed to retry embedding" });
+    }
+  });
+
+  app.post("/api/corpus/:id/force-reembed", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
+    try {
+      const { forceReembed } = await import("./services/embedWorker");
+      await forceReembed(req.params.id);
+      
+      await audit.log("corpus_force_reembed", {
+        targetType: "corpus_item",
+        targetId: req.params.id,
+      });
+      
+      res.json({ success: true, message: "Corpus item queued for re-embedding, old chunks cleared" });
+    } catch (error: any) {
+      logger.error({ requestId: req.requestId, error: "Force re-embed error", details: error.message });
+      res.status(400).json({ error: error.message || "Failed to force re-embed" });
     }
   });
 

@@ -52,7 +52,6 @@ export async function embedCorpusItem(corpusItemId: string): Promise<number> {
         corpusItemId,
         chunkIndex: i,
         chunkText: chunks[i],
-        embedding: embeddingJson,
         embeddingModel: model,
       });
 
@@ -79,10 +78,10 @@ export async function searchCorpus(
   const { embedding } = await generateEmbedding(query);
   const embeddingStr = `[${embedding.join(",")}]`;
 
-  let results: any[];
+  let queryResult: any;
   
   if (trackId) {
-    results = await db.execute(
+    queryResult = await db.execute(
       sql`
         SELECT 
           cc.id,
@@ -101,7 +100,7 @@ export async function searchCorpus(
       `
     );
   } else {
-    results = await db.execute(
+    queryResult = await db.execute(
       sql`
         SELECT 
           cc.id,
@@ -120,7 +119,7 @@ export async function searchCorpus(
     );
   }
 
-  const rows = (results as any).rows || results;
+  const rows = queryResult.rows || queryResult;
   
   return rows
     .filter((r: any) => r.score >= config.minScore)
@@ -151,11 +150,26 @@ export async function getApprovedCorpusItems(trackId?: string) {
 }
 
 export async function approveCorpusItem(id: string): Promise<boolean> {
+  const { queueForEmbedding, computeContentHash } = await import("./embedWorker");
+  
+  const [item] = await db
+    .select({ title: trainingCorpusItems.title, normalizedText: trainingCorpusItems.normalizedText })
+    .from(trainingCorpusItems)
+    .where(eq(trainingCorpusItems.id, id))
+    .limit(1);
+
+  if (!item) {
+    return false;
+  }
+
+  const contentHash = computeContentHash(item.title, item.normalizedText);
+
   const result = await db
     .update(trainingCorpusItems)
     .set({ 
       status: "approved", 
       approvedAt: new Date(),
+      contentHash,
       updatedAt: new Date(),
     })
     .where(eq(trainingCorpusItems.id, id))
@@ -166,9 +180,9 @@ export async function approveCorpusItem(id: string): Promise<boolean> {
   }
 
   try {
-    await embedCorpusItem(id);
+    await queueForEmbedding(id);
   } catch (error: any) {
-    logger.error({ error: error.message, corpusItemId: id, message: "Failed to embed after approval" });
+    logger.error({ error: error.message, corpusItemId: id, message: "Failed to queue for embedding after approval" });
   }
 
   return true;

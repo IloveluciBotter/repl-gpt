@@ -13,6 +13,8 @@ export type AuditAction =
   | "corpus_item_updated"
   | "corpus_item_deleted"
   | "corpus_item_approved"
+  | "corpus_embed_retry"
+  | "corpus_force_reembed"
   | "cosmetic_purchase"
   | "cosmetic_equip"
   | "admin_action"
