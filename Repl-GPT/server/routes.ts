@@ -31,6 +31,7 @@ import { createAuditHelper } from "./services/audit";
 import { logger } from "./middleware/logger";
 import { getFullHealth, isReady, isLive, isAiFallbackAllowed } from "./services/health";
 import { captureError } from "./sentry";
+import { seedDefaultTracks } from "./seed";
 
 // Helper to get user ID from session (simplified - you may want to add proper auth)
 function getUserId(req: Request): string | null {
@@ -85,6 +86,13 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Seed default tracks on startup (idempotent - won't duplicate)
+  try {
+    await seedDefaultTracks();
+  } catch (error) {
+    logger.error({ error, message: "Failed to seed default tracks" });
+  }
+
   app.get("/api/health", async (req: Request, res: Response) => {
     try {
       const health = await getFullHealth();
@@ -326,6 +334,98 @@ export async function registerRoutes(
       res.json(questions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch benchmark questions" });
+    }
+  });
+
+  // ===== ADMIN: TRACK MANAGEMENT =====
+  app.post("/api/tracks", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
+    try {
+      const { name, description } = req.body;
+      if (!name || typeof name !== "string") {
+        return res.status(400).json({ error: "Track name is required" });
+      }
+      
+      const track = await storage.createTrack(name, description);
+      
+      await audit.log("admin_action", {
+        targetType: "track",
+        targetId: track.id,
+        metadata: { action: "create", name, description },
+      });
+      
+      logger.info({ trackId: track.id, trackName: name, message: "Track created by admin" });
+      res.status(201).json(track);
+    } catch (error: any) {
+      logger.error({ error: error.message, message: "Failed to create track" });
+      res.status(500).json({ error: "Failed to create track" });
+    }
+  });
+
+  app.put("/api/tracks/:id", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
+    try {
+      const { id } = req.params;
+      const { name, description } = req.body;
+      
+      if (!name || typeof name !== "string") {
+        return res.status(400).json({ error: "Track name is required" });
+      }
+      
+      const existingTrack = await storage.getTrack(id);
+      if (!existingTrack) {
+        return res.status(404).json({ error: "Track not found" });
+      }
+      
+      const track = await storage.updateTrack(id, name, description);
+      
+      await audit.log("admin_action", {
+        targetType: "track",
+        targetId: id,
+        metadata: { 
+          action: "update", 
+          oldName: existingTrack.name, 
+          newName: name,
+          oldDescription: existingTrack.description,
+          newDescription: description,
+        },
+      });
+      
+      logger.info({ trackId: id, trackName: name, message: "Track updated by admin" });
+      res.json(track);
+    } catch (error: any) {
+      logger.error({ error: error.message, message: "Failed to update track" });
+      res.status(500).json({ error: "Failed to update track" });
+    }
+  });
+
+  app.delete("/api/tracks/:id", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
+    try {
+      const { id } = req.params;
+      
+      const existingTrack = await storage.getTrack(id);
+      if (!existingTrack) {
+        return res.status(404).json({ error: "Track not found" });
+      }
+      
+      const deleted = await storage.deleteTrack(id);
+      
+      if (deleted) {
+        await audit.log("admin_action", {
+          targetType: "track",
+          targetId: id,
+          metadata: { action: "delete", name: existingTrack.name },
+        });
+        
+        logger.info({ trackId: id, trackName: existingTrack.name, message: "Track deleted by admin" });
+        res.json({ success: true, message: "Track deleted" });
+      } else {
+        res.status(500).json({ error: "Failed to delete track" });
+      }
+    } catch (error: any) {
+      logger.error({ error: error.message, message: "Failed to delete track" });
+      res.status(500).json({ error: "Failed to delete track" });
     }
   });
 

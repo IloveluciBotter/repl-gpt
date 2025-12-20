@@ -49,6 +49,8 @@ export interface IStorage {
   getAllTracks(): Promise<Track[]>;
   getTrack(id: string): Promise<Track | undefined>;
   createTrack(name: string, description?: string): Promise<Track>;
+  updateTrack(id: string, name: string, description?: string): Promise<Track | undefined>;
+  deleteTrack(id: string): Promise<boolean>;
 
   // Question operations
   getQuestionsByTrack(trackId: string): Promise<Question[]>;
@@ -226,6 +228,21 @@ export class DbStorage implements IStorage {
   async createTrack(name: string, description?: string): Promise<Track> {
     const result = await db.insert(tracks).values({ name, description }).returning();
     return result[0];
+  }
+
+  async updateTrack(id: string, name: string, description?: string): Promise<Track | undefined> {
+    const result = await db
+      .update(tracks)
+      .set({ name, description })
+      .where(eq(tracks.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTrack(id: string): Promise<boolean> {
+    await db.delete(questions).where(eq(questions.trackId, id));
+    const result = await db.delete(tracks).where(eq(tracks.id, id)).returning();
+    return result.length > 0;
   }
 
   // Question operations
