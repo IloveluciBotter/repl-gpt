@@ -72,6 +72,10 @@ export const trainAttempts = pgTable("train_attempts", {
   cycleId: varchar("cycle_id").references(() => cycles.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   reviewedAt: timestamp("reviewed_at"),
+  // Auto-review fields
+  scorePct: numeric("score_pct", { precision: 5, scale: 4 }), // 0.0000 - 1.0000
+  attemptDurationSec: integer("attempt_duration_sec"),
+  autoReviewedAt: timestamp("auto_reviewed_at"),
 });
 
 export const reviews = pgTable("reviews", {

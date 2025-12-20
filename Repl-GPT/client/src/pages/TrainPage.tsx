@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { CheckCircle, XCircle, Brain, Zap } from "lucide-react";
+import { CheckCircle, XCircle, Brain, Zap, Clock, Award, AlertTriangle } from "lucide-react";
 
 interface TrainPageProps {
   intelligenceLevel: number;
@@ -22,6 +22,15 @@ interface Track {
   description: string | null;
 }
 
+interface AutoReviewResult {
+  decision: "approved" | "rejected" | "pending";
+  message: string;
+  scorePct: number;
+  attemptDurationSec: number;
+  styleCreditsEarned: number;
+  intelligenceGain: number;
+}
+
 export function TrainPage({
   intelligenceLevel,
   onCorrectAnswer,
@@ -35,6 +44,10 @@ export function TrainPage({
   const [showResult, setShowResult] = useState(false);
   const [score, setScore] = useState({ correct: 0, total: 0 });
   const [loading, setLoading] = useState(true);
+  const [startTime, setStartTime] = useState<number>(0);
+  const [userAnswers, setUserAnswers] = useState<number[]>([]);
+  const [autoReviewResult, setAutoReviewResult] = useState<AutoReviewResult | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     api.tracks.getAll().then((data) => {
@@ -46,12 +59,15 @@ export function TrainPage({
   const loadQuestions = async (trackId: string) => {
     setLoading(true);
     setSelectedTrack(trackId);
+    setAutoReviewResult(null);
     try {
       const data = await api.tracks.getQuestions(trackId);
       const shuffled = data.sort(() => Math.random() - 0.5).slice(0, 10);
       setQuestions(shuffled);
       setCurrentIndex(0);
       setScore({ correct: 0, total: 0 });
+      setUserAnswers([]);
+      setStartTime(Date.now());
     } catch (error) {
       console.error("Failed to load questions:", error);
     }
@@ -62,6 +78,7 @@ export function TrainPage({
     if (showResult) return;
     setSelectedAnswer(index);
     setShowResult(true);
+    setUserAnswers((prev) => [...prev, index]);
 
     const isCorrect = index === questions[currentIndex].correctIndex;
     if (isCorrect) {
@@ -73,15 +90,42 @@ export function TrainPage({
     setScore((s) => ({ ...s, total: s.total + 1 }));
   };
 
-  const nextQuestion = () => {
+  const submitTrainingAttempt = async () => {
+    if (!selectedTrack || questions.length === 0) return;
+    
+    setSubmitting(true);
+    try {
+      const correctAnswers = questions.map((q) => q.correctIndex);
+      const result = await api.train.submit({
+        trackId: selectedTrack,
+        difficulty: "medium",
+        content: JSON.stringify({ answers: userAnswers }),
+        answers: userAnswers,
+        correctAnswers,
+        startTime,
+      });
+      setAutoReviewResult(result.autoReview);
+    } catch (error) {
+      console.error("Failed to submit training attempt:", error);
+    }
+    setSubmitting(false);
+  };
+
+  const nextQuestion = async () => {
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((i) => i + 1);
       setSelectedAnswer(null);
       setShowResult(false);
     } else {
-      setSelectedTrack(null);
-      setQuestions([]);
+      await submitTrainingAttempt();
     }
+  };
+
+  const resetToTracks = () => {
+    setSelectedTrack(null);
+    setQuestions([]);
+    setAutoReviewResult(null);
+    setUserAnswers([]);
   };
 
   const currentQuestion = questions[currentIndex];
@@ -135,24 +179,98 @@ export function TrainPage({
     );
   }
 
-  if (!currentQuestion) {
+  if (!currentQuestion || autoReviewResult) {
+    const scorePctDisplay = autoReviewResult 
+      ? Math.round(autoReviewResult.scorePct * 100) 
+      : (score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0);
+    
+    const getDecisionIcon = () => {
+      if (!autoReviewResult) return <Zap className="w-16 h-16 text-yellow-400 mx-auto mb-4" />;
+      switch (autoReviewResult.decision) {
+        case "approved":
+          return <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />;
+        case "rejected":
+          return <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />;
+        default:
+          return <Clock className="w-16 h-16 text-yellow-400 mx-auto mb-4" />;
+      }
+    };
+
+    const getDecisionColor = () => {
+      if (!autoReviewResult) return "text-purple-400";
+      switch (autoReviewResult.decision) {
+        case "approved": return "text-green-400";
+        case "rejected": return "text-red-400";
+        default: return "text-yellow-400";
+      }
+    };
+
     return (
       <div className="max-w-2xl mx-auto p-6 text-center">
         <div className="bg-gray-800 rounded-xl p-8">
-          <Zap className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Session Complete!</h2>
-          <p className="text-gray-400 mb-4">
-            You got {score.correct} out of {score.total} correct
-          </p>
-          <div className="text-5xl font-bold text-purple-400 mb-6">
-            {Math.round((score.correct / score.total) * 100)}%
-          </div>
-          <button
-            onClick={() => setSelectedTrack(null)}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition-colors"
-          >
-            Back to Tracks
-          </button>
+          {submitting ? (
+            <>
+              <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
+              <p className="text-gray-400">Submitting your training attempt...</p>
+            </>
+          ) : (
+            <>
+              {getDecisionIcon()}
+              <h2 className="text-2xl font-bold mb-2">
+                {autoReviewResult?.decision === "approved" && "Approved!"}
+                {autoReviewResult?.decision === "rejected" && "Rejected"}
+                {autoReviewResult?.decision === "pending" && "Pending Review"}
+                {!autoReviewResult && "Session Complete!"}
+              </h2>
+              
+              {autoReviewResult && (
+                <div className={`mb-4 p-3 rounded-lg ${
+                  autoReviewResult.decision === "approved" ? "bg-green-900/30" :
+                  autoReviewResult.decision === "rejected" ? "bg-red-900/30" :
+                  "bg-yellow-900/30"
+                }`}>
+                  <p className="text-sm">{autoReviewResult.message}</p>
+                </div>
+              )}
+
+              <p className="text-gray-400 mb-2">
+                You got {score.correct} out of {score.total} correct
+              </p>
+              
+              <div className={`text-5xl font-bold mb-4 ${getDecisionColor()}`}>
+                {scorePctDisplay}%
+              </div>
+
+              {autoReviewResult && (
+                <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                  <div className="bg-gray-700/50 p-3 rounded-lg">
+                    <Clock className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+                    <div className="text-gray-300">{autoReviewResult.attemptDurationSec}s</div>
+                    <div className="text-gray-500 text-xs">Duration</div>
+                  </div>
+                  <div className="bg-gray-700/50 p-3 rounded-lg">
+                    <Award className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
+                    <div className="text-gray-300">+{autoReviewResult.styleCreditsEarned}</div>
+                    <div className="text-gray-500 text-xs">Style Credits</div>
+                  </div>
+                </div>
+              )}
+
+              {autoReviewResult?.decision === "approved" && autoReviewResult.intelligenceGain > 0 && (
+                <div className="flex items-center justify-center gap-2 mb-4 text-green-400">
+                  <Brain className="w-5 h-5" />
+                  <span>+{autoReviewResult.intelligenceGain} Intelligence</span>
+                </div>
+              )}
+
+              <button
+                onClick={resetToTracks}
+                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition-colors"
+              >
+                Back to Tracks
+              </button>
+            </>
+          )}
         </div>
       </div>
     );

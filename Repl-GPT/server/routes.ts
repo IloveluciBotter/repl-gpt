@@ -32,6 +32,7 @@ import { logger } from "./middleware/logger";
 import { getFullHealth, isReady, isLive, isAiFallbackAllowed } from "./services/health";
 import { captureError } from "./sentry";
 import { seedDefaultTracks } from "./seed";
+import { getAutoReviewConfig, computeAutoReview, calculateStyleCredits, calculateIntelligenceGain } from "./services/autoReview";
 
 // Helper to get user ID from session (simplified - you may want to add proper auth)
 function getUserId(req: Request): string | null {
@@ -817,12 +818,13 @@ export async function registerRoutes(
     trackId: z.string(),
     difficulty: z.enum(["low", "medium", "high", "extreme"]),
     content: z.string().min(1),
+    answers: z.array(z.number()).optional(),
+    correctAnswers: z.array(z.number()).optional(),
+    startTime: z.number().optional(),
   });
 
   app.post("/api/train-attempts/submit", requireAuthMiddleware, requireHiveAccess, submitLimiter, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
-    // For backward compatibility, try to get userId from old system
-    // In the future, you may want to link wallet addresses to user accounts
     const userId = (req as any).userId || (req as any).publicKey || null;
     if (!userId) {
       return res.status(401).json({ error: "User ID required" });
@@ -837,13 +839,33 @@ export async function registerRoutes(
       
       const cost = getCostByDifficulty(body.difficulty);
       
-      // Generate evidence packet (simulated)
+      // Calculate score and duration
+      let scorePct = 0;
+      let attemptDurationSec = 0;
+      
+      if (body.answers && body.correctAnswers && body.answers.length > 0) {
+        const correctCount = body.answers.reduce((count, answer, idx) => {
+          return count + (answer === body.correctAnswers![idx] ? 1 : 0);
+        }, 0);
+        scorePct = correctCount / body.answers.length;
+      }
+      
+      if (body.startTime) {
+        attemptDurationSec = Math.floor((Date.now() - body.startTime) / 1000);
+      }
+      
+      // Generate evidence packet
       const evidencePacket = {
         phrases: [],
         topics: [],
         timestamp: new Date().toISOString(),
+        answersGiven: body.answers || [],
+        correctAnswers: body.correctAnswers || [],
+        scorePct,
+        attemptDurationSec,
       };
       
+      // Create the attempt first
       const attempt = await storage.createTrainAttempt({
         userId,
         trackId: body.trackId,
@@ -851,18 +873,64 @@ export async function registerRoutes(
         cost,
         content: body.content,
         cycleId: currentCycle.id,
+        scorePct: scorePct.toFixed(4),
+        attemptDurationSec,
       });
       
-      // Update evidence packet
-      await storage.updateAttemptStatus(attempt.id, attempt.status as "approved" | "rejected", evidencePacket);
+      // Apply auto-review logic
+      const autoReviewConfig = getAutoReviewConfig();
+      const reviewResult = computeAutoReview(scorePct, attemptDurationSec, autoReviewConfig);
       
-      await audit.log("submission_created", {
+      // Update attempt with auto-review result
+      const updatedAttempt = await storage.updateAttemptAutoReview(attempt.id, {
+        status: reviewResult.decision,
+        scorePct: scorePct.toFixed(4),
+        attemptDurationSec,
+        autoReviewedAt: reviewResult.autoReviewedAt,
+        evidencePacket,
+      });
+      
+      // Calculate rewards if approved
+      let styleCreditsEarned = 0;
+      let intelligenceGain = 0;
+      
+      if (reviewResult.decision === "approved") {
+        styleCreditsEarned = calculateStyleCredits(scorePct, body.difficulty);
+        intelligenceGain = calculateIntelligenceGain(scorePct, body.difficulty);
+      }
+      
+      // Log audit based on decision
+      const auditAction = reviewResult.decision === "approved" 
+        ? "auto_review_approved" 
+        : reviewResult.decision === "rejected" 
+          ? "auto_review_rejected" 
+          : "auto_review_pending";
+      
+      await audit.log(auditAction, {
         targetType: "submission",
         targetId: attempt.id,
-        metadata: { trackId: body.trackId, difficulty: body.difficulty, cycleId: currentCycle.id },
+        metadata: { 
+          trackId: body.trackId, 
+          difficulty: body.difficulty, 
+          cycleId: currentCycle.id,
+          scorePct,
+          attemptDurationSec,
+          autoReviewEnabled: autoReviewConfig.enabled,
+          minDurationSec: autoReviewConfig.minDurationSec,
+        },
       });
       
-      res.json(attempt);
+      res.json({
+        ...updatedAttempt,
+        autoReview: {
+          decision: reviewResult.decision,
+          message: reviewResult.message,
+          scorePct,
+          attemptDurationSec,
+          styleCreditsEarned,
+          intelligenceGain,
+        },
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });

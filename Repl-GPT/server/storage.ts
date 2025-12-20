@@ -84,10 +84,19 @@ export interface IStorage {
     cost: string;
     content: string;
     cycleId: string;
+    scorePct?: string;
+    attemptDurationSec?: number;
   }): Promise<TrainAttempt>;
   getPendingAttempts(): Promise<TrainAttempt[]>;
   getAttemptById(id: string): Promise<TrainAttempt | undefined>;
   updateAttemptStatus(id: string, status: "approved" | "rejected", evidencePacket?: Record<string, any>): Promise<TrainAttempt>;
+  updateAttemptAutoReview(id: string, data: {
+    status: "approved" | "rejected" | "pending";
+    scorePct: string;
+    attemptDurationSec: number;
+    autoReviewedAt: Date;
+    evidencePacket?: Record<string, any>;
+  }): Promise<TrainAttempt>;
   getApprovedAttemptsForCycles(cycleNumbers: number[]): Promise<TrainAttempt[]>;
 
   // Review operations
@@ -365,6 +374,8 @@ export class DbStorage implements IStorage {
     cost: string;
     content: string;
     cycleId: string;
+    scorePct?: string;
+    attemptDurationSec?: number;
   }): Promise<TrainAttempt> {
     const result = await db.insert(trainAttempts).values({ ...data, status: "pending" }).returning();
     return result[0];
@@ -382,6 +393,30 @@ export class DbStorage implements IStorage {
   async updateAttemptStatus(id: string, status: "approved" | "rejected", evidencePacket?: Record<string, any>): Promise<TrainAttempt> {
     const updates: any = { status, reviewedAt: new Date() };
     if (evidencePacket) updates.evidencePacket = evidencePacket;
+    
+    const result = await db.update(trainAttempts).set(updates).where(eq(trainAttempts.id, id)).returning();
+    return result[0];
+  }
+
+  async updateAttemptAutoReview(id: string, data: {
+    status: "approved" | "rejected" | "pending";
+    scorePct: string;
+    attemptDurationSec: number;
+    autoReviewedAt: Date;
+    evidencePacket?: Record<string, any>;
+  }): Promise<TrainAttempt> {
+    const updates: any = {
+      status: data.status,
+      scorePct: data.scorePct,
+      attemptDurationSec: data.attemptDurationSec,
+      autoReviewedAt: data.autoReviewedAt,
+    };
+    if (data.status === "approved" || data.status === "rejected") {
+      updates.reviewedAt = new Date();
+    }
+    if (data.evidencePacket) {
+      updates.evidencePacket = data.evidencePacket;
+    }
     
     const result = await db.update(trainAttempts).set(updates).where(eq(trainAttempts.id, id)).returning();
     return result[0];

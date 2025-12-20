@@ -185,10 +185,28 @@ export const api = {
   },
 
   train: {
-    submit: (trackId: string, difficulty: string, content: string) =>
-      fetchApi<{ id: string }>("/api/train-attempts/submit", {
+    submit: (data: {
+      trackId: string;
+      difficulty: string;
+      content: string;
+      answers: number[];
+      correctAnswers: number[];
+      startTime: number;
+    }) =>
+      fetchApi<{
+        id: string;
+        status: string;
+        autoReview: {
+          decision: "approved" | "rejected" | "pending";
+          message: string;
+          scorePct: number;
+          attemptDurationSec: number;
+          styleCreditsEarned: number;
+          intelligenceGain: number;
+        };
+      }>("/api/train-attempts/submit", {
         method: "POST",
-        body: JSON.stringify({ trackId, difficulty, content }),
+        body: JSON.stringify(data),
       }),
   },
 
