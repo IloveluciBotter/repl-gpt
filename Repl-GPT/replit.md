@@ -75,6 +75,28 @@ Preferred communication style: Simple, everyday language.
 - **Pending Review**: Scores between 40-100% go to manual review queue
 - **Environment Variables**: AUTO_REVIEW_ENABLED (default true), AUTO_REVIEW_MIN_DURATION_SEC (default 30)
 
+### Training Stake Economy
+- **Stake System**: Users deposit HIVE tokens to a vault and receive internal stake balance
+- **On-Chain Verification**: Deposits are verified via Solana RPC to prevent fraud
+  - Validates transaction exists and succeeded
+  - Confirms transfer destination is the configured vault
+  - Verifies token mint matches HIVE token
+  - Ensures sender wallet matches authenticated user
+- **Fee Reserve/Settle**: Training fees are reserved upfront and settled based on score
+  - Perfect score (100%): 0% cost (full refund)
+  - Pass (≥70%): Partial cost scaled by performance
+  - Fail (<70%): 100% cost
+- **Difficulty Fees**: Fees scale by difficulty (low: 0.5x, medium: 1x, high: 2x, extreme: 4x base fee)
+- **Rewards Pool**: Failed training fees route to rewards pool for distribution
+- **Database Tables**: wallet_balances, stake_ledger, rewards_pool
+- **Environment Variables**:
+  - ECON_BASE_FEE_HIVE: Base fee amount (default: 1)
+  - ECON_PASS_THRESHOLD: Pass threshold (default: 0.7)
+  - ECON_MIN_PARTIAL_COST_PCT: Minimum cost for partial pass (default: 0.2)
+  - HIVE_VAULT_ADDRESS: Vault address for deposits
+  - HIVE_MINT: HIVE token mint address
+  - REWARDS_WALLET_ADDRESS: Address for rewards distribution
+
 ### Cosmetics System
 - **Style Credits**: Cosmetic-only currency (starts at 200)
   - Earn +20 credits for 90%+ session score
