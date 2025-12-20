@@ -892,6 +892,166 @@ export async function registerRoutes(
     }
   });
 
+  // ===== STAKE ECONOMY =====
+  const { getEconomyConfig, getFeeForDifficulty, calculateFeeSettlement } = await import("./services/economy");
+
+  app.get("/api/stake/status", requireAuthMiddleware, async (req: Request, res: Response) => {
+    try {
+      const publicKey = (req as any).publicKey;
+      const balance = await storage.getOrCreateWalletBalance(publicKey);
+      const config = getEconomyConfig();
+      
+      res.json({
+        stakeHive: parseFloat(balance.trainingStakeHive),
+        vaultAddress: config.vaultAddress,
+        mintAddress: config.mintAddress,
+      });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Stake status error", details: error });
+      res.status(500).json({ error: "Failed to get stake status" });
+    }
+  });
+
+  app.get("/api/stake/deposit-info", requireAuthMiddleware, async (req: Request, res: Response) => {
+    try {
+      const config = getEconomyConfig();
+      
+      res.json({
+        vaultAddress: config.vaultAddress,
+        mintAddress: config.mintAddress,
+        instructions: "Send HIVE tokens to the vault address, then call POST /api/stake/confirm with the transaction signature",
+      });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Deposit info error", details: error });
+      res.status(500).json({ error: "Failed to get deposit info" });
+    }
+  });
+
+  const confirmDepositSchema = z.object({
+    txSignature: z.string().min(32).max(128),
+    amount: z.number().positive(),
+  });
+
+  app.post("/api/stake/confirm", requireAuthMiddleware, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
+    try {
+      const publicKey = (req as any).publicKey;
+      const body = confirmDepositSchema.parse(req.body);
+      const config = getEconomyConfig();
+      
+      const existingEntry = await storage.getStakeLedgerByTxSignature(body.txSignature);
+      if (existingEntry) {
+        return res.status(409).json({ 
+          error: "duplicate_deposit", 
+          message: "This transaction has already been credited" 
+        });
+      }
+      
+      const { verifyDeposit } = await import("./services/solanaVerify");
+      const verification = await verifyDeposit(
+        body.txSignature,
+        config.vaultAddress,
+        config.mintAddress,
+        body.amount,
+        publicKey
+      );
+      
+      if (!verification.valid) {
+        logger.warn({
+          requestId: req.requestId,
+          error: "Deposit verification failed",
+          reason: verification.error,
+          txSignature: body.txSignature,
+          claimedAmount: body.amount,
+        });
+        return res.status(400).json({
+          error: "verification_failed",
+          message: verification.error || "Could not verify deposit on chain",
+        });
+      }
+      
+      const verifiedAmount = verification.verifiedAmount || body.amount;
+      
+      const balance = await storage.getOrCreateWalletBalance(publicKey);
+      const currentStake = parseFloat(balance.trainingStakeHive);
+      const newStake = currentStake + verifiedAmount;
+      const newStakeStr = newStake.toFixed(8);
+      
+      await storage.updateStakeBalance(publicKey, newStakeStr);
+      
+      await storage.createStakeLedgerEntry({
+        walletAddress: publicKey,
+        txSignature: body.txSignature,
+        amount: verifiedAmount.toFixed(8),
+        balanceAfter: newStakeStr,
+        reason: "deposit",
+        metadata: { 
+          fromTx: body.txSignature,
+          sender: verification.sender,
+          verified: true,
+        },
+      });
+      
+      await audit.log("deposit_confirmed", {
+        targetType: "stake",
+        metadata: { 
+          txSignature: body.txSignature, 
+          amount: verifiedAmount, 
+          newStake,
+          sender: verification.sender,
+        },
+      });
+      
+      res.json({
+        success: true,
+        credited: verifiedAmount,
+        stakeAfter: newStake,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      logger.error({ requestId: req.requestId, error: "Confirm deposit error", details: error });
+      res.status(500).json({ error: "Failed to confirm deposit" });
+    }
+  });
+
+  app.get("/api/rewards/status", requireAuthMiddleware, async (req: Request, res: Response) => {
+    try {
+      const pool = await storage.getRewardsPool();
+      const config = getEconomyConfig();
+      
+      res.json({
+        pendingHive: parseFloat(pool.pendingHive),
+        totalSweptHive: parseFloat(pool.totalSweptHive),
+        rewardsWalletAddress: pool.rewardsWalletAddress || config.rewardsWalletAddress,
+      });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Rewards status error", details: error });
+      res.status(500).json({ error: "Failed to get rewards status" });
+    }
+  });
+
+  app.get("/api/economy/config", requireAuthMiddleware, async (req: Request, res: Response) => {
+    try {
+      const config = getEconomyConfig();
+      
+      res.json({
+        baseFeeHive: config.baseFeeHive,
+        passThreshold: config.passThreshold,
+        fees: {
+          low: getFeeForDifficulty("low"),
+          medium: getFeeForDifficulty("medium"),
+          high: getFeeForDifficulty("high"),
+          extreme: getFeeForDifficulty("extreme"),
+        },
+      });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Economy config error", details: error });
+      res.status(500).json({ error: "Failed to get economy config" });
+    }
+  });
+
   // ===== TRAIN ATTEMPTS =====
   const submitAttemptSchema = z.object({
     trackId: z.string(),
@@ -904,9 +1064,9 @@ export async function registerRoutes(
 
   app.post("/api/train-attempts/submit", requireAuthMiddleware, requireHiveAccess, submitLimiter, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
-    const userId = (req as any).userId || (req as any).publicKey || null;
-    if (!userId) {
-      return res.status(401).json({ error: "User ID required" });
+    const publicKey = (req as any).publicKey;
+    if (!publicKey) {
+      return res.status(401).json({ error: "Wallet address required" });
     }
     
     try {
@@ -915,6 +1075,23 @@ export async function registerRoutes(
       if (!currentCycle) {
         return res.status(400).json({ error: "No active cycle" });
       }
+      
+      const feeHive = getFeeForDifficulty(body.difficulty);
+      
+      const balance = await storage.getOrCreateWalletBalance(publicKey);
+      const currentStake = parseFloat(balance.trainingStakeHive);
+      
+      if (currentStake < feeHive) {
+        return res.status(402).json({ 
+          error: "insufficient_stake",
+          message: `Insufficient stake. Required: ${feeHive} HIVE, Available: ${currentStake} HIVE`,
+          required: feeHive,
+          available: currentStake,
+        });
+      }
+      
+      const stakeAfterReserve = currentStake - feeHive;
+      await storage.updateStakeBalance(publicKey, stakeAfterReserve.toFixed(8));
       
       const cost = getCostByDifficulty(body.difficulty);
       
@@ -944,9 +1121,22 @@ export async function registerRoutes(
         attemptDurationSec,
       };
       
-      // Create the attempt first
+      await storage.createStakeLedgerEntry({
+        walletAddress: publicKey,
+        amount: (-feeHive).toFixed(8),
+        balanceAfter: stakeAfterReserve.toFixed(8),
+        reason: "fee_reserve",
+        metadata: { difficulty: body.difficulty, feeHive },
+      });
+      
+      await audit.log("fee_reserved", {
+        targetType: "stake",
+        metadata: { feeHive, stakeAfterReserve },
+      });
+      
+      // Create the attempt
       const attempt = await storage.createTrainAttempt({
-        userId,
+        userId: publicKey,
         trackId: body.trackId,
         difficulty: body.difficulty,
         cost,
@@ -956,11 +1146,10 @@ export async function registerRoutes(
         attemptDurationSec,
       });
       
-      // Log submission creation
       await audit.log("submission_created", {
         targetType: "submission",
         targetId: attempt.id,
-        metadata: { trackId: body.trackId, difficulty: body.difficulty, cycleId: currentCycle.id },
+        metadata: { trackId: body.trackId, difficulty: body.difficulty, cycleId: currentCycle.id, feeHive },
       });
       
       // Apply auto-review logic
@@ -975,6 +1164,53 @@ export async function registerRoutes(
         autoReviewedAt: reviewResult.autoReviewedAt,
         evidencePacket,
       });
+      
+      // Calculate fee settlement based on score
+      const economyConfig = getEconomyConfig();
+      const passed = scorePct >= economyConfig.passThreshold;
+      const feeSettlement = calculateFeeSettlement(feeHive, scorePct, passed);
+      
+      // Refund portion back to stake
+      let stakeAfter = stakeAfterReserve;
+      if (feeSettlement.refundHive > 0) {
+        stakeAfter = stakeAfterReserve + feeSettlement.refundHive;
+        await storage.updateStakeBalance(publicKey, stakeAfter.toFixed(8));
+        
+        await storage.createStakeLedgerEntry({
+          walletAddress: publicKey,
+          amount: feeSettlement.refundHive.toFixed(8),
+          balanceAfter: stakeAfter.toFixed(8),
+          reason: "fee_refund",
+          attemptId: attempt.id,
+          metadata: { scorePct, refundHive: feeSettlement.refundHive },
+        });
+        
+        await audit.log("fee_refunded", {
+          targetType: "stake",
+          targetId: attempt.id,
+          metadata: { refundHive: feeSettlement.refundHive, scorePct, stakeAfter },
+        });
+      }
+      
+      // Route cost to rewards pool
+      if (feeSettlement.costHive > 0) {
+        await storage.addToRewardsPool(feeSettlement.costHive.toFixed(8));
+        
+        await storage.createStakeLedgerEntry({
+          walletAddress: publicKey,
+          amount: (-feeSettlement.costHive).toFixed(8),
+          balanceAfter: stakeAfter.toFixed(8),
+          reason: "fee_cost_to_rewards",
+          attemptId: attempt.id,
+          metadata: { costHive: feeSettlement.costHive, scorePct },
+        });
+        
+        await audit.log("fee_routed_to_rewards", {
+          targetType: "rewards_pool",
+          targetId: attempt.id,
+          metadata: { costHive: feeSettlement.costHive, scorePct },
+        });
+      }
       
       // Calculate rewards if approved
       let styleCreditsEarned = 0;
@@ -1001,8 +1237,9 @@ export async function registerRoutes(
           cycleId: currentCycle.id,
           scorePct,
           attemptDurationSec,
-          autoReviewEnabled: autoReviewConfig.enabled,
-          minDurationSec: autoReviewConfig.minDurationSec,
+          feeHive,
+          costHive: feeSettlement.costHive,
+          refundHive: feeSettlement.refundHive,
         },
       });
       
@@ -1015,6 +1252,12 @@ export async function registerRoutes(
           attemptDurationSec,
           styleCreditsEarned,
           intelligenceGain,
+        },
+        economy: {
+          feeHive,
+          costHive: feeSettlement.costHive,
+          refundHive: feeSettlement.refundHive,
+          stakeAfter,
         },
       });
     } catch (error) {

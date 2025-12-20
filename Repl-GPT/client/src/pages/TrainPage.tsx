@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { CheckCircle, XCircle, Brain, Zap, Clock, Award, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, Brain, Zap, Clock, Award, AlertTriangle, Coins, TrendingDown, TrendingUp } from "lucide-react";
 
 interface TrainPageProps {
   intelligenceLevel: number;
@@ -31,6 +31,24 @@ interface AutoReviewResult {
   intelligenceGain: number;
 }
 
+interface EconomyResult {
+  feeHive: number;
+  costHive: number;
+  refundHive: number;
+  stakeAfter: number;
+}
+
+interface EconomyConfig {
+  baseFeeHive: number;
+  passThreshold: number;
+  fees: {
+    low: number;
+    medium: number;
+    high: number;
+    extreme: number;
+  };
+}
+
 export function TrainPage({
   intelligenceLevel,
   onCorrectAnswer,
@@ -47,20 +65,47 @@ export function TrainPage({
   const [startTime, setStartTime] = useState<number>(0);
   const [userAnswers, setUserAnswers] = useState<number[]>([]);
   const [autoReviewResult, setAutoReviewResult] = useState<AutoReviewResult | null>(null);
+  const [economyResult, setEconomyResult] = useState<EconomyResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sessionComplete, setSessionComplete] = useState(false);
+  const [stakeHive, setStakeHive] = useState<number>(0);
+  const [economyConfig, setEconomyConfig] = useState<EconomyConfig | null>(null);
+  const [stakeError, setStakeError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.tracks.getAll().then((data) => {
-      setTracks(data);
+    Promise.all([
+      api.tracks.getAll(),
+      api.stake.getStatus().catch(() => null),
+      api.economy.getConfig().catch(() => null),
+    ]).then(([tracksData, stakeData, economyData]) => {
+      setTracks(tracksData);
+      if (stakeData) setStakeHive(stakeData.stakeHive);
+      if (economyData) setEconomyConfig(economyData);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
 
+  const refreshStake = async () => {
+    try {
+      const stakeData = await api.stake.getStatus();
+      setStakeHive(stakeData.stakeHive);
+    } catch (error) {
+      console.error("Failed to refresh stake:", error);
+    }
+  };
+
+  const currentFee = economyConfig?.fees.medium || 1;
+
   const loadQuestions = async (trackId: string) => {
+    if (stakeHive < currentFee) {
+      setStakeError(`Insufficient stake. You need at least ${currentFee} HIVE to start training.`);
+      return;
+    }
+    setStakeError(null);
     setLoading(true);
     setSelectedTrack(trackId);
     setAutoReviewResult(null);
+    setEconomyResult(null);
     setSessionComplete(false);
     try {
       const data = await api.tracks.getQuestions(trackId);
@@ -107,6 +152,10 @@ export function TrainPage({
         startTime,
       });
       setAutoReviewResult(result.autoReview);
+      if (result.economy) {
+        setEconomyResult(result.economy);
+        setStakeHive(result.economy.stakeAfter);
+      }
     } catch (error) {
       console.error("Failed to submit training attempt:", error);
     }
@@ -130,8 +179,11 @@ export function TrainPage({
     setSelectedTrack(null);
     setQuestions([]);
     setAutoReviewResult(null);
+    setEconomyResult(null);
     setUserAnswers([]);
     setSessionComplete(false);
+    setStakeError(null);
+    refreshStake();
   };
 
   const currentQuestion = questions[currentIndex];
@@ -145,20 +197,53 @@ export function TrainPage({
   }
 
   if (!selectedTrack) {
+    const hasInsufficientStake = stakeHive < currentFee;
+    
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 bg-purple-900/30 px-4 py-2 rounded-full mb-4">
-            <Brain className="w-5 h-5 text-purple-400" />
-            <span className="text-purple-400 font-medium">
-              AI Level: {intelligenceLevel}
-            </span>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <div className="inline-flex items-center gap-2 bg-purple-900/30 px-4 py-2 rounded-full">
+              <Brain className="w-5 h-5 text-purple-400" />
+              <span className="text-purple-400 font-medium">
+                AI Level: {intelligenceLevel}
+              </span>
+            </div>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
+              hasInsufficientStake ? "bg-red-900/30" : "bg-green-900/30"
+            }`}>
+              <Coins className={`w-5 h-5 ${hasInsufficientStake ? "text-red-400" : "text-green-400"}`} />
+              <span className={`font-medium ${hasInsufficientStake ? "text-red-400" : "text-green-400"}`}>
+                {stakeHive.toFixed(2)} HIVE
+              </span>
+            </div>
           </div>
           <h1 className="text-3xl font-bold mb-2">Train Your AI</h1>
           <p className="text-gray-400">
             Answer questions to make HiveMind smarter!
           </p>
+          {economyConfig && (
+            <p className="text-gray-500 text-sm mt-2">
+              Training fee: {currentFee} HIVE (varies by difficulty)
+            </p>
+          )}
         </div>
+
+        {stakeError && (
+          <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+            <p className="text-red-300">{stakeError}</p>
+          </div>
+        )}
+
+        {hasInsufficientStake && !stakeError && (
+          <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+            <p className="text-yellow-300">
+              You need at least {currentFee} HIVE staked to train. Deposit more HIVE to continue.
+            </p>
+          </div>
+        )}
 
         {tracks.length === 0 ? (
           <div className="text-center text-gray-400 py-12">
@@ -171,7 +256,12 @@ export function TrainPage({
               <button
                 key={track.id}
                 onClick={() => loadQuestions(track.id)}
-                className="bg-gray-800 hover:bg-gray-700 rounded-xl p-6 text-left transition-colors border border-gray-700 hover:border-purple-500"
+                disabled={hasInsufficientStake}
+                className={`rounded-xl p-6 text-left transition-colors border ${
+                  hasInsufficientStake 
+                    ? "bg-gray-800/50 border-gray-700 opacity-60 cursor-not-allowed" 
+                    : "bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-purple-500"
+                }`}
               >
                 <h3 className="text-xl font-semibold mb-2">{track.name}</h3>
                 <p className="text-gray-400 text-sm">
@@ -258,6 +348,42 @@ export function TrainPage({
                     <Award className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
                     <div className="text-gray-300">+{autoReviewResult.styleCreditsEarned}</div>
                     <div className="text-gray-500 text-xs">Style Credits</div>
+                  </div>
+                </div>
+              )}
+
+              {economyResult && (
+                <div className="bg-gray-700/30 rounded-lg p-4 mb-6">
+                  <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center justify-center gap-2">
+                    <Coins className="w-4 h-4" />
+                    Stake Economy
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="text-center">
+                      <div className="text-gray-400 text-xs mb-1">Fee Reserved</div>
+                      <div className="text-orange-400 font-medium">{economyResult.feeHive.toFixed(4)}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-gray-400 text-xs mb-1">Cost</div>
+                      <div className={`font-medium flex items-center justify-center gap-1 ${
+                        economyResult.costHive > 0 ? "text-red-400" : "text-green-400"
+                      }`}>
+                        {economyResult.costHive > 0 ? (
+                          <TrendingDown className="w-3 h-3" />
+                        ) : (
+                          <TrendingUp className="w-3 h-3" />
+                        )}
+                        {economyResult.costHive.toFixed(4)}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-gray-400 text-xs mb-1">Refund</div>
+                      <div className="text-green-400 font-medium">+{economyResult.refundHive.toFixed(4)}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-600/50 text-center">
+                    <div className="text-gray-400 text-xs mb-1">New Balance</div>
+                    <div className="text-lg font-semibold text-white">{economyResult.stakeAfter.toFixed(4)} HIVE</div>
                   </div>
                 </div>
               )}

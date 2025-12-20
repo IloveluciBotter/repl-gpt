@@ -1,0 +1,115 @@
+REPLIT TASK (NEXT STEP): COMPLETE TRAINING STAKE ECONOMY v1 (WRITE CODE + APPLY CHANGES)
+
+We already have training, auto-review, and token gating. Now implement the full deposit-first stake economy.
+
+A) Stake vault + internal stake balance (must be real)
+
+Implement/complete:
+
+wallet_balances.trainingStakeHive
+
+stake_ledger with unique txSignature (idempotent deposits)
+
+Endpoints:
+
+GET /api/stake/status (auth) → { stakeHive, vaultAddress, mintAddress }
+
+GET /api/stake/deposit-info (auth) → vault + instructions
+
+POST /api/stake/confirm (auth) → verifies on-chain HIVE deposit to vault, credits stake, ledger + audit
+
+B) Per-attempt fee reserve + settle (spend/refund)
+
+Add economy config (env):
+
+ECON_BASE_FEE_HIVE=1
+
+ECON_PASS_THRESHOLD=0.70
+
+ECON_MIN_PARTIAL_COST_PCT=0.05
+
+AUTO_REVIEW_MODE still applies
+
+On POST /api/train-attempts/submit:
+
+Compute feeHive (for now: constant base fee; level scaling can come later)
+
+Require stakeHive >= feeHive before allowing an attempt
+
+Reserve the fee:
+
+decrement stake immediately OR mark reserved (choose one and be consistent)
+
+record ledger reason fee_reserve
+
+After score is computed + auto-review decision:
+
+determine costPct:
+
+score < PASS → 1.0
+
+score == 1.0 → 0.0
+
+else → max(MIN_PARTIAL, 1.0 - scorePct)
+
+settle:
+
+costHive = feeHive * costPct
+
+refundHive = feeHive - costHive
+
+refund goes back to stake (ledger fee_refund)
+
+cost goes to rewards pool (ledger fee_cost_to_rewards)
+
+Return in response:
+
+feeHive, costHive, refundHive, stakeAfter
+
+C) Rewards pool (accounting first)
+
+Add:
+
+rewards_pool.pendingHive, totalSweptHive
+
+Endpoint:
+
+GET /api/rewards/status (auth ok) → { pendingHive, totalSweptHive, rewardsWalletAddress }
+
+Do NOT require on-chain sweep yet (optional later). Just accounting.
+
+D) Frontend gating + display
+
+Train page must:
+
+show “Stake: X HIVE”
+
+disable “Start Training” if stake < fee
+
+show after submit: fee/cost/refund + updated stake
+
+E) Audit logs (mandatory)
+
+Log:
+
+deposit confirmed
+
+fee reserved
+
+fee refunded
+
+fee routed to rewards
+
+Deliverable
+
+Return:
+
+Files changed
+
+Example /api/stake/status
+
+Example training submit response showing fee/cost/refund
+
+Confirm idempotent deposits (same txSignature can’t credit twice)
+
+Implement now.

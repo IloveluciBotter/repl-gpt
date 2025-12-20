@@ -204,10 +204,65 @@ export const api = {
           styleCreditsEarned: number;
           intelligenceGain: number;
         };
+        economy?: {
+          feeHive: number;
+          costHive: number;
+          refundHive: number;
+          stakeAfter: number;
+        };
       }>("/api/train-attempts/submit", {
         method: "POST",
         body: JSON.stringify(data),
       }),
+  },
+
+  stake: {
+    getStatus: () =>
+      fetchApi<{
+        stakeHive: number;
+        vaultAddress: string;
+        mintAddress: string;
+      }>("/api/stake/status"),
+
+    getDepositInfo: () =>
+      fetchApi<{
+        vaultAddress: string;
+        mintAddress: string;
+        instructions: string;
+      }>("/api/stake/deposit-info"),
+
+    confirmDeposit: (txSignature: string, amount: number) =>
+      fetchApi<{
+        success: boolean;
+        credited: number;
+        stakeAfter: number;
+      }>("/api/stake/confirm", {
+        method: "POST",
+        body: JSON.stringify({ txSignature, amount }),
+      }),
+  },
+
+  rewards: {
+    getStatus: () =>
+      fetchApi<{
+        pendingHive: number;
+        totalSweptHive: number;
+        rewardsWalletAddress: string | null;
+      }>("/api/rewards/status"),
+  },
+
+  economy: {
+    getConfig: () =>
+      fetchApi<{
+        baseFeeHive: number;
+        passThreshold: number;
+        fees: {
+          low: number;
+          medium: number;
+          high: number;
+          extreme: number;
+        };
+      }>("/api/economy/config"),
   },
 
   health: {

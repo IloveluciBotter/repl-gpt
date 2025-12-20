@@ -16,6 +16,9 @@ import {
   type ChatMessage,
   type AuthNonce,
   type Session,
+  type WalletBalance,
+  type StakeLedgerEntry,
+  type RewardsPool,
   users,
   tracks,
   questions,
@@ -34,6 +37,9 @@ import {
   authNonces,
   sessions,
   auditLogs,
+  walletBalances,
+  stakeLedger,
+  rewardsPool,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, gte, lte, isNull, gt } from "drizzle-orm";
@@ -195,6 +201,26 @@ export interface IStorage {
     requestId: string;
     ipHash?: string;
   }): Promise<void>;
+
+  // Stake operations
+  getWalletBalance(walletAddress: string): Promise<WalletBalance | undefined>;
+  getOrCreateWalletBalance(walletAddress: string): Promise<WalletBalance>;
+  updateStakeBalance(walletAddress: string, newBalance: string): Promise<WalletBalance>;
+  createStakeLedgerEntry(data: {
+    walletAddress: string;
+    txSignature?: string;
+    amount: string;
+    balanceAfter: string;
+    reason: string;
+    attemptId?: string;
+    metadata?: Record<string, any>;
+  }): Promise<StakeLedgerEntry>;
+  getStakeLedgerByTxSignature(txSignature: string): Promise<StakeLedgerEntry | undefined>;
+
+  // Rewards pool operations
+  getRewardsPool(): Promise<RewardsPool>;
+  addToRewardsPool(amount: string): Promise<void>;
+  sweepRewardsPool(toWallet: string): Promise<string>;
 }
 
 export class DbStorage implements IStorage {
@@ -875,6 +901,116 @@ export class DbStorage implements IStorage {
       requestId: data.requestId,
       ipHash: data.ipHash,
     });
+  }
+
+  // Stake operations
+  async getWalletBalance(walletAddress: string): Promise<WalletBalance | undefined> {
+    const result = await db
+      .select()
+      .from(walletBalances)
+      .where(eq(walletBalances.walletAddress, walletAddress))
+      .limit(1);
+    return result[0];
+  }
+
+  async getOrCreateWalletBalance(walletAddress: string): Promise<WalletBalance> {
+    const existing = await this.getWalletBalance(walletAddress);
+    if (existing) {
+      return existing;
+    }
+    const result = await db
+      .insert(walletBalances)
+      .values({ walletAddress, trainingStakeHive: "0" })
+      .onConflictDoNothing()
+      .returning();
+    if (result[0]) {
+      return result[0];
+    }
+    const created = await this.getWalletBalance(walletAddress);
+    if (!created) {
+      throw new Error("Failed to create wallet balance");
+    }
+    return created;
+  }
+
+  async updateStakeBalance(walletAddress: string, newBalance: string): Promise<WalletBalance> {
+    const result = await db
+      .update(walletBalances)
+      .set({ trainingStakeHive: newBalance, updatedAt: new Date() })
+      .where(eq(walletBalances.walletAddress, walletAddress))
+      .returning();
+    return result[0];
+  }
+
+  async createStakeLedgerEntry(data: {
+    walletAddress: string;
+    txSignature?: string;
+    amount: string;
+    balanceAfter: string;
+    reason: string;
+    attemptId?: string;
+    metadata?: Record<string, any>;
+  }): Promise<StakeLedgerEntry> {
+    const result = await db
+      .insert(stakeLedger)
+      .values({
+        walletAddress: data.walletAddress,
+        txSignature: data.txSignature,
+        amount: data.amount,
+        balanceAfter: data.balanceAfter,
+        reason: data.reason,
+        attemptId: data.attemptId,
+        metadata: data.metadata,
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getStakeLedgerByTxSignature(txSignature: string): Promise<StakeLedgerEntry | undefined> {
+    const result = await db
+      .select()
+      .from(stakeLedger)
+      .where(eq(stakeLedger.txSignature, txSignature))
+      .limit(1);
+    return result[0];
+  }
+
+  // Rewards pool operations
+  async getRewardsPool(): Promise<RewardsPool> {
+    const result = await db.select().from(rewardsPool).limit(1);
+    if (result[0]) {
+      return result[0];
+    }
+    const created = await db
+      .insert(rewardsPool)
+      .values({ pendingHive: "0", totalSweptHive: "0" })
+      .returning();
+    return created[0];
+  }
+
+  async addToRewardsPool(amount: string): Promise<void> {
+    const pool = await this.getRewardsPool();
+    const newPending = (parseFloat(pool.pendingHive) + parseFloat(amount)).toFixed(8);
+    await db
+      .update(rewardsPool)
+      .set({ pendingHive: newPending, updatedAt: new Date() })
+      .where(eq(rewardsPool.id, pool.id));
+  }
+
+  async sweepRewardsPool(toWallet: string): Promise<string> {
+    const pool = await this.getRewardsPool();
+    const sweptAmount = pool.pendingHive;
+    const newTotalSwept = (parseFloat(pool.totalSweptHive) + parseFloat(sweptAmount)).toFixed(8);
+    await db
+      .update(rewardsPool)
+      .set({
+        pendingHive: "0",
+        totalSweptHive: newTotalSwept,
+        rewardsWalletAddress: toWallet,
+        updatedAt: new Date(),
+      })
+      .where(eq(rewardsPool.id, pool.id));
+    return sweptAmount;
   }
 }
 

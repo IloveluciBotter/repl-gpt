@@ -12,10 +12,18 @@ export type AuditAction =
   | "corpus_item_added"
   | "corpus_item_updated"
   | "corpus_item_deleted"
+  | "corpus_item_approved"
   | "cosmetic_purchase"
   | "cosmetic_equip"
   | "admin_action"
-  | "cycle_rollover";
+  | "cycle_rollover"
+  | "deposit_confirmed"
+  | "fee_reserved"
+  | "fee_refunded"
+  | "fee_routed_to_rewards"
+  | "auto_review_approved"
+  | "auto_review_rejected"
+  | "auto_review_pending";
 
 export type AuditTargetType =
   | "corpus_item"
@@ -25,7 +33,10 @@ export type AuditTargetType =
   | "user"
   | "session"
   | "cycle"
-  | "model_version";
+  | "model_version"
+  | "stake"
+  | "rewards_pool"
+  | "track";
 
 export interface AuditLogEntry {
   action: AuditAction;

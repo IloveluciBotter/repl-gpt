@@ -204,6 +204,37 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Wallet Balances - internal stake tracking per wallet
+export const walletBalances = pgTable("wallet_balances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address").notNull().unique(),
+  trainingStakeHive: numeric("training_stake_hive", { precision: 18, scale: 8 }).notNull().default("0"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Stake Ledger - idempotent deposit/withdrawal tracking
+export const stakeLedger = pgTable("stake_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address").notNull(),
+  txSignature: varchar("tx_signature").unique(), // Unique for idempotent deposits
+  amount: numeric("amount", { precision: 18, scale: 8 }).notNull(), // Positive = credit, negative = debit
+  balanceAfter: numeric("balance_after", { precision: 18, scale: 8 }).notNull(),
+  reason: varchar("reason").notNull(), // deposit, fee_reserve, fee_refund, fee_cost_to_rewards, withdrawal
+  attemptId: varchar("attempt_id").references(() => trainAttempts.id),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Rewards Pool - accounting for collected fees
+export const rewardsPool = pgTable("rewards_pool", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pendingHive: numeric("pending_hive", { precision: 18, scale: 8 }).notNull().default("0"),
+  totalSweptHive: numeric("total_swept_hive", { precision: 18, scale: 8 }).notNull().default("0"),
+  rewardsWalletAddress: varchar("rewards_wallet_address"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Audit Logs - for tracking sensitive actions
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -221,6 +252,9 @@ export const auditLogs = pgTable("audit_logs", {
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type AuthNonce = typeof authNonces.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
+export type WalletBalance = typeof walletBalances.$inferSelect;
+export type StakeLedgerEntry = typeof stakeLedger.$inferSelect;
+export type RewardsPool = typeof rewardsPool.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type Track = typeof tracks.$inferSelect;
 export type Question = typeof questions.$inferSelect;
