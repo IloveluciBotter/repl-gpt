@@ -1,0 +1,78 @@
+1) Deposit → stake balance must be truly real on-chain
+
+You’re “deposit-first,” so this has to be bulletproof:
+
+On-chain deposit verification is correct for your exact HIVE token program (Token-2022 vs SPL Token).
+
+Idempotency: same txSignature can’t credit twice (unique constraint).
+
+Handles edge cases: wrong mint, wrong destination, partial transfer, unconfirmed tx.
+
+A clear UX if deposit is pending/failed (not “nothing happened”).
+
+2) Spend/refund settlement must be atomic
+
+Per attempt you’re doing: reserve fee → auto-review → settle cost/refund → route losses to rewards.
+To be “fully functional,” this needs:
+
+No double-settlement (can’t settle same attempt twice).
+
+Atomic DB transaction: stake updates + rewards pool updates + ledger + attempt status all commit together.
+
+Safe behavior if the server crashes mid-flow (resume or roll back cleanly).
+
+3) Rewards wallet flow needs a real sweep plan
+
+You said losses go to a rewards wallet. To finish that feature:
+
+Decide the operational mode:
+
+Accounting-only (just track pending rewards) ✅ simplest
+
+On-chain sweep (periodic transfer from vault → rewards wallet)
+
+If on-chain sweep:
+
+where the vault private key lives (KMS/HSM/secure env) and who can trigger sweep
+
+rate limits + audit logs on sweep
+
+“minimum sweep amount” thresholds
+
+4) Auto-review + human review handoff
+
+Auto-review is working, but “fully functional” means:
+
+AUTO_REVIEW_MODE switch (auto / shadow / off)
+
+A clean way to resolve all those Pending attempts later (admin/reviewer queue)
+
+“One vote per reviewer” + 2-of-3 consensus ready to turn on without refactoring
+
+5) RAG needs a reliable “approve → embed” pipeline
+
+RAG is integrated, but it’s only truly functional if:
+
+Approving corpus always triggers chunking + embedding (and retries on failure)
+
+Embeddings are kept in sync when an item is edited (re-embed + replace old chunks)
+
+A way to see “Approved but not embedded yet” in admin UI (so you can fix stuck items)
+
+Chat returns sources consistently and doesn’t silently answer ungrounded unless you explicitly allow it
+
+6) Cycles/changelog if you want it “official”
+
+If Cycles isn’t implemented yet, that’s the biggest “missing” product feature for legitimacy:
+
+weekly cycle rollover
+
+corpus snapshot + stats snapshot
+
+public changelog page
+
+7) Legal/trust pages + support path
+
+To feel “real” to users (and exchanges/partners later):
+
+Terms, Privacy, Risk disclaimers, Contact/support

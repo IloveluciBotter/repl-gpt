@@ -7,6 +7,7 @@ import { ChatPage } from "@/pages/ChatPage";
 import { CorpusPage } from "@/pages/CorpusPage";
 import { CorpusAdminPage } from "@/pages/CorpusAdminPage";
 import StatusPage from "@/pages/StatusPage";
+import LegalPage from "@/pages/LegalPage";
 import { useWallet } from "@/hooks/useWallet";
 import { useIntelligence } from "@/hooks/useIntelligence";
 
@@ -88,6 +89,22 @@ function App() {
 
           <Route path="/status">
             <StatusPage />
+          </Route>
+
+          <Route path="/terms">
+            <LegalPage type="terms" />
+          </Route>
+
+          <Route path="/privacy">
+            <LegalPage type="privacy" />
+          </Route>
+
+          <Route path="/risk">
+            <LegalPage type="risk" />
+          </Route>
+
+          <Route path="/contact">
+            <LegalPage type="contact" />
           </Route>
 
           <Route>

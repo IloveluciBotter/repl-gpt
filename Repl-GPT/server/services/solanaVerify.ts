@@ -82,7 +82,7 @@ export async function verifyDeposit(
     let decimals = 8;
 
     for (const ix of instructions) {
-      if ("parsed" in ix && ix.program === "spl-token") {
+      if ("parsed" in ix && (ix.program === "spl-token" || ix.program === "spl-token-2022")) {
         const parsed = ix.parsed;
         
         if (parsed.type === "transfer" || parsed.type === "transferChecked") {

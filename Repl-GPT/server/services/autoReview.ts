@@ -1,10 +1,14 @@
 import { logger } from "../middleware/logger";
 
 export type AutoReviewDecision = "approved" | "rejected" | "pending";
+export type AutoReviewMode = "auto" | "shadow" | "off";
 
 export interface AutoReviewConfig {
   enabled: boolean;
+  mode: AutoReviewMode;
   minDurationSec: number;
+  approveThreshold: number;
+  rejectThreshold: number;
 }
 
 export interface AutoReviewResult {
@@ -13,11 +17,13 @@ export interface AutoReviewResult {
   attemptDurationSec: number;
   autoReviewedAt: Date;
   message: string;
+  shadowDecision?: AutoReviewDecision;
 }
 
 export function getAutoReviewConfig(): AutoReviewConfig {
   const nodeEnv = process.env.NODE_ENV || "development";
   const enabledEnv = process.env.AUTO_REVIEW_ENABLED;
+  const modeEnv = process.env.AUTO_REVIEW_MODE as AutoReviewMode | undefined;
   
   let enabled: boolean;
   if (enabledEnv !== undefined) {
@@ -26,9 +32,37 @@ export function getAutoReviewConfig(): AutoReviewConfig {
     enabled = nodeEnv === "development";
   }
   
+  const mode: AutoReviewMode = modeEnv || (enabled ? "auto" : "off");
   const minDurationSec = parseInt(process.env.AUTO_REVIEW_MIN_DURATION_SEC || "30", 10);
+  const approveThreshold = parseFloat(process.env.AUTO_REVIEW_APPROVE_THRESHOLD || "1.0");
+  const rejectThreshold = parseFloat(process.env.AUTO_REVIEW_REJECT_THRESHOLD || "0.40");
   
-  return { enabled, minDurationSec };
+  return { enabled, mode, minDurationSec, approveThreshold, rejectThreshold };
+}
+
+function computeDecision(
+  scorePct: number,
+  attemptDurationSec: number,
+  config: AutoReviewConfig
+): { decision: AutoReviewDecision; message: string } {
+  if (scorePct >= config.approveThreshold && attemptDurationSec >= config.minDurationSec) {
+    return {
+      decision: "approved",
+      message: `Auto-approved: score ${(scorePct * 100).toFixed(0)}% >= ${(config.approveThreshold * 100).toFixed(0)}% + minimum time met (${attemptDurationSec}s >= ${config.minDurationSec}s).`,
+    };
+  }
+  
+  if (scorePct <= config.rejectThreshold) {
+    return {
+      decision: "rejected",
+      message: `Auto-rejected: score too low (${(scorePct * 100).toFixed(0)}% <= ${(config.rejectThreshold * 100).toFixed(0)}%).`,
+    };
+  }
+  
+  return {
+    decision: "pending",
+    message: `Waiting for human review. Score: ${(scorePct * 100).toFixed(0)}%.`,
+  };
 }
 
 export function computeAutoReview(
@@ -37,8 +71,9 @@ export function computeAutoReview(
   config: AutoReviewConfig
 ): AutoReviewResult {
   const autoReviewedAt = new Date();
+  const computed = computeDecision(scorePct, attemptDurationSec, config);
   
-  if (!config.enabled) {
+  if (config.mode === "off") {
     return {
       decision: "pending",
       scorePct,
@@ -48,48 +83,36 @@ export function computeAutoReview(
     };
   }
   
-  if (scorePct === 1.0 && attemptDurationSec >= config.minDurationSec) {
+  if (config.mode === "shadow") {
     logger.info({
-      message: "Auto-review approved",
-      scorePct,
-      attemptDurationSec,
-      minDuration: config.minDurationSec,
-    });
-    return {
-      decision: "approved",
-      scorePct,
-      attemptDurationSec,
-      autoReviewedAt,
-      message: `Auto-approved: perfect score + minimum time met (${attemptDurationSec}s >= ${config.minDurationSec}s).`,
-    };
-  }
-  
-  if (scorePct <= 0.40) {
-    logger.info({
-      message: "Auto-review rejected",
+      message: "Auto-review shadow mode",
+      shadowDecision: computed.decision,
       scorePct,
       attemptDurationSec,
     });
     return {
-      decision: "rejected",
+      decision: "pending",
       scorePct,
       attemptDurationSec,
       autoReviewedAt,
-      message: `Auto-rejected: score too low (${(scorePct * 100).toFixed(0)}% <= 40%).`,
+      message: `Shadow mode: Would have been ${computed.decision}. Awaiting human review.`,
+      shadowDecision: computed.decision,
     };
   }
   
   logger.info({
-    message: "Auto-review pending",
+    message: `Auto-review ${computed.decision}`,
     scorePct,
     attemptDurationSec,
+    minDuration: config.minDurationSec,
   });
+  
   return {
-    decision: "pending",
+    decision: computed.decision,
     scorePct,
     attemptDurationSec,
     autoReviewedAt,
-    message: `Waiting for human review. Score: ${(scorePct * 100).toFixed(0)}%.`,
+    message: computed.message,
   };
 }
 

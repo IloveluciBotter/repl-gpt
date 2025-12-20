@@ -1582,6 +1582,53 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/pending-attempts", async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    
+    try {
+      const pendingAttempts = await storage.getPendingAttempts();
+      const { getAutoReviewConfig } = await import("./services/autoReview");
+      const config = getAutoReviewConfig();
+      
+      res.json({
+        attempts: pendingAttempts,
+        autoReviewMode: config.mode,
+        totalPending: pendingAttempts.length,
+      });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Failed to fetch pending attempts", details: error });
+      res.status(500).json({ error: "Failed to fetch pending attempts" });
+    }
+  });
+
+  app.get("/api/admin/rewards-pool", async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    
+    try {
+      const pool = await storage.getRewardsPool();
+      res.json({
+        pendingHive: pool.pendingHive,
+        totalSweptHive: pool.totalSweptHive,
+        rewardsWalletAddress: pool.rewardsWalletAddress,
+      });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Failed to fetch rewards pool", details: error });
+      res.status(500).json({ error: "Failed to fetch rewards pool" });
+    }
+  });
+
+  app.get("/api/admin/auto-review-config", async (req: Request, res: Response) => {
+    if (!(await requireAdmin(req, res))) return;
+    
+    try {
+      const { getAutoReviewConfig } = await import("./services/autoReview");
+      const config = getAutoReviewConfig();
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch auto-review config" });
+    }
+  });
+
   // ===== CODE EDITOR (Admin Only) =====
   const ADMIN_EDIT_KEY = process.env.ADMIN_EDIT_KEY || "";
 
