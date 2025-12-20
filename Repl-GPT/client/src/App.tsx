@@ -1,28 +1,100 @@
-import { useState } from "react";
+import { Route, Switch } from "wouter";
+import { TopBar } from "@/components/TopBar";
+import { Navigation } from "@/components/Navigation";
+import { TokenGate } from "@/components/TokenGate";
+import { TrainPage } from "@/pages/TrainPage";
+import { ChatPage } from "@/pages/ChatPage";
+import { CorpusPage } from "@/pages/CorpusPage";
+import { CorpusAdminPage } from "@/pages/CorpusAdminPage";
+import { useWallet } from "@/hooks/useWallet";
+import { useIntelligence } from "@/hooks/useIntelligence";
 
 function App() {
-  const [intelligenceLevel, setIntelligenceLevel] = useState(1);
-  
+  const { wallet, loading, connect, disconnect } = useWallet();
+  const { level, addXp, loseXp } = useIntelligence();
+
+  const handleCorrectAnswer = () => {
+    addXp(25);
+  };
+
+  const handleWrongAnswer = () => {
+    loseXp(10);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-          Train Your AI
-        </h1>
-        <p className="text-gray-400 mb-8">
-          Answer questions to make your AI companion smarter!
-        </p>
-        <div className="bg-gray-800 rounded-lg p-6 mb-6">
-          <p className="text-sm text-gray-400 mb-2">Intelligence Level</p>
-          <p className="text-5xl font-bold text-blue-400">{intelligenceLevel}</p>
-        </div>
-        <button 
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-colors"
-          onClick={() => setIntelligenceLevel(l => l + 1)}
-        >
-          Start Training
-        </button>
-      </div>
+    <div className="min-h-screen bg-gray-950 text-white">
+      <TopBar
+        intelligenceLevel={level}
+        walletConnected={wallet.connected}
+        publicKey={wallet.publicKey}
+        hiveBalance={wallet.hiveBalance}
+        requiredHive={wallet.requiredHive}
+        hasAccess={wallet.hasAccess}
+        onConnect={connect}
+        onDisconnect={disconnect}
+        loading={loading}
+      />
+      <Navigation isCreator={wallet.isCreator} hasAccess={wallet.hasAccess} />
+
+      <main>
+        <Switch>
+          <Route path="/">
+            <TokenGate
+              connected={wallet.connected}
+              hasAccess={wallet.hasAccess}
+              hiveBalance={wallet.hiveBalance}
+              requiredHive={wallet.requiredHive}
+              onConnect={connect}
+            >
+              <TrainPage
+                intelligenceLevel={level}
+                onCorrectAnswer={handleCorrectAnswer}
+                onWrongAnswer={handleWrongAnswer}
+              />
+            </TokenGate>
+          </Route>
+
+          <Route path="/chat">
+            <TokenGate
+              connected={wallet.connected}
+              hasAccess={wallet.hasAccess}
+              hiveBalance={wallet.hiveBalance}
+              requiredHive={wallet.requiredHive}
+              onConnect={connect}
+            >
+              <ChatPage intelligenceLevel={level} />
+            </TokenGate>
+          </Route>
+
+          <Route path="/corpus">
+            <CorpusPage
+              authenticated={wallet.authenticated}
+              hasAccess={wallet.hasAccess}
+            />
+          </Route>
+
+          <Route path="/corpus/admin">
+            <TokenGate
+              connected={wallet.connected}
+              hasAccess={wallet.hasAccess}
+              hiveBalance={wallet.hiveBalance}
+              requiredHive={wallet.requiredHive}
+              onConnect={connect}
+            >
+              <CorpusAdminPage isCreator={wallet.isCreator} />
+            </TokenGate>
+          </Route>
+
+          <Route>
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <h1 className="text-4xl font-bold mb-4">404</h1>
+                <p className="text-gray-400">Page not found</p>
+              </div>
+            </div>
+          </Route>
+        </Switch>
+      </main>
     </div>
   );
 }

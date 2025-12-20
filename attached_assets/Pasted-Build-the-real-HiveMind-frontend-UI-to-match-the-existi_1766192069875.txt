@@ -1,0 +1,71 @@
+Build the real HiveMind frontend UI to match the existing app features (NOT a placeholder). The backend is already running on port 5000. The error indicates the repo expects a Vite/React client at /client/index.html, so create/restore that client and make it match the HiveMind app.
+
+Non-negotiables:
+- Dark theme across the app.
+- Back button on all pages.
+- Routes/pages must exist and match:
+  - /  (Train game / quiz)
+  - /chat (Official AI Chat)
+  - /corpus (public viewer + search)
+  - /corpus/admin (creator-only management UI)
+- Must show Intelligence Level display globally (top bar).
+- Must show Wallet status globally (connect/disconnect).
+- Must enforce token gate: require 50+ HIVE to access gated features (at minimum: Train + Chat; Corpus read can stay public, Admin requires creator).
+- Must support auth via wallet signature (JWT or similar) using the existing server/auth implementation.
+- Must show chat history UI using existing DB endpoints if present.
+- Cosmetics page can exist as “partial/placeholder” but keep the UI consistent.
+
+CRITICAL FIRST STEP (before coding):
+1) Inspect the codebase to discover the real API routes and expected payloads.
+   - Scan server/index.ts and server routes files for endpoints under /api (auth, chat, corpus, token gate, wallet balance).
+   - Identify which endpoints exist for:
+     - getting nonce/challenge
+     - verifying signature / issuing token
+     - checking HIVE balance
+     - chat request/response
+     - corpus list/search
+     - admin corpus CRUD
+     - chat history read/write
+2) Based on discovered routes, create a small typed client wrapper in the frontend to call these endpoints.
+3) Do NOT guess endpoint names; use what exists in the server.
+
+Frontend structure to create (if missing):
+- client/index.html
+- client/src/main.tsx
+- client/src/App.tsx
+- client/src/index.css (or tailwind)
+- client/src/pages/*
+- client/src/components/*
+
+UI Layout spec (match the app):
+- Top bar:
+  - App name: HiveMind
+  - Intelligence Level indicator (pull from server/user profile if exists; otherwise store in local state for now but keep the UI slot)
+  - Wallet connect button (Phantom)
+  - Token gate status: “HIVE balance: X (Needs 50+)”
+  - Back button
+- Left nav or top nav:
+  - Train, Chat, Corpus, Admin, (optional Cosmetics)
+- Page designs:
+  - Train (/): quiz game with multiple-choice questions, shows level progression + intelligence impact; locked behind token gate.
+  - Chat (/chat): official AI chat UI; calls the real chat endpoint; show streaming if supported; show chat history sidebar if endpoint exists.
+  - Corpus (/corpus): public read view; search box calling real corpus search endpoint; show results cards.
+  - Corpus Admin (/corpus/admin): creator-only; show table/list + create/edit/delete if endpoints exist; otherwise scaffold with “Endpoint missing” messaging.
+- Error handling:
+  - If not authenticated, show “Connect wallet to continue” and a button to sign-in.
+  - If authenticated but balance < 50, show “Token Gate: need 50+ HIVE” and disable gated actions.
+
+Implementation constraints:
+- Use existing dependencies already in package.json if possible.
+- If frontend deps are missing, add the minimum: react, react-dom, wouter (or existing router), and whatever Solana wallet library is already used in this repo (prefer existing Phantom integration code).
+- Keep code TypeScript.
+- Do not change backend route behavior; only wire frontend to it.
+- Ensure the Vite dev middleware works: client/index.html must exist so server/vite.ts stops throwing ENOENT.
+
+Deliverable:
+- After implementation, app should load on port 5000 without ENOENT.
+- Navigating /, /chat, /corpus, /corpus/admin shows matching dark UI with wallet + intelligence bar.
+- Token-gated actions are blocked until wallet connected + HIVE >= 50.
+
+After coding:
+- Print a short checklist of which endpoints were found and which UI parts are fully wired vs scaffolded.
