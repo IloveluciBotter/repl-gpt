@@ -2,11 +2,17 @@ import { Ollama } from "ollama";
 import { storage } from "./storage";
 import type { TrainingCorpusItem } from "@shared/schema";
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.1:8b";
+const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || (OLLAMA_API_KEY ? "https://ollama.com" : "");
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2";
 
-// Only create ollama instance if URL is configured
-const ollama = OLLAMA_BASE_URL ? new Ollama({ host: OLLAMA_BASE_URL }) : null;
+// Create ollama instance with authentication if API key is provided
+const ollama = OLLAMA_BASE_URL ? new Ollama({ 
+  host: OLLAMA_BASE_URL,
+  ...(OLLAMA_API_KEY && { 
+    headers: { Authorization: `Bearer ${OLLAMA_API_KEY}` } 
+  })
+}) : null;
 
 interface IntelligenceStyle {
   maxTokens: number;
@@ -87,17 +93,23 @@ export async function checkOllamaHealth(): Promise<OllamaHealthStatus> {
       ok: false,
       baseUrl: OLLAMA_BASE_URL || "(not configured)",
       model: OLLAMA_MODEL,
-      error: "OLLAMA_BASE_URL not configured",
+      error: OLLAMA_API_KEY ? "Ollama URL not configured" : "OLLAMA_API_KEY not configured",
     };
   }
 
   try {
     // Use AbortController for timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const headers: Record<string, string> = {};
+    if (OLLAMA_API_KEY) {
+      headers["Authorization"] = `Bearer ${OLLAMA_API_KEY}`;
+    }
 
     const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
       signal: controller.signal,
+      headers,
     });
     clearTimeout(timeoutId);
 
