@@ -1,0 +1,107 @@
+Do RAG embedding pipeline next.
+
+Reason: deposit status UI is polish; embedding retries/re-embed-on-edit is core correctness. If embeddings get stale or fail silently, your “shared AI brain” drifts and users lose trust fast.
+
+Here’s the exact Replit prompt (it will code):
+
+REPLIT TASK (NEXT STEP): RAG EMBEDDING PIPELINE v1 — retries + re-embed on edit + stuck-state UI (WRITE CODE + APPLY CHANGES)
+
+RAG works, but we need it to be reliable and self-healing.
+
+A) Add embedding job state to DB
+
+Extend corpus_items (or add a new table) to track embedding status:
+
+Minimum fields:
+
+embedStatus: not_embedded | queued | embedding | embedded | failed
+
+embedError: text nullable
+
+embedUpdatedAt: timestamp
+
+contentHash: text (hash of title+content) to detect edits
+
+lastEmbeddedHash: text nullable
+
+embedAttempts: int default 0
+
+B) Auto-embed on approve (reliable)
+
+When a corpus item becomes approved:
+
+Set embedStatus=queued
+
+Background worker (or cron) processes queued items:
+
+chunk content
+
+generate embeddings
+
+upsert chunks (delete old chunks for this item first)
+
+set lastEmbeddedHash=contentHash, embedStatus=embedded, clear error
+
+C) Re-embed on edit
+
+If an approved corpus item is edited:
+
+recompute contentHash
+
+if contentHash != lastEmbeddedHash, set status back to queued
+
+ensure old chunks are replaced after new embeddings succeed
+
+D) Retry policy
+
+Max attempts: EMBED_MAX_ATTEMPTS (default 5)
+
+Backoff schedule (simple):
+
+1m, 5m, 15m, 1h, 6h
+
+Fail to failed after max attempts and record embedError
+
+E) Safety + idempotency
+
+Prevent two workers embedding the same item at once (row lock / status transition lock)
+
+If embedding fails mid-way, do not leave half-written chunks (transaction)
+
+Never embed drafts/rejected items
+
+F) API / UI for ops
+
+Add endpoints:
+
+GET /api/corpus/embed-status (admin only): list items by status (failed/queued)
+
+POST /api/corpus/:id/retry-embed (admin only): resets to queued
+
+POST /api/corpus/:id/force-reembed (admin only): clears chunks + queues
+
+Frontend (admin):
+
+Show badge: Embedded / Queued / Failed
+
+“Retry” button for failed
+
+G) Deliverable
+
+Return:
+
+Files changed
+
+Example corpus item JSON showing embed fields
+
+How the worker/cron is scheduled
+
+How to test:
+
+approve an item → embeds
+
+edit approved item → re-embeds
+
+force failure (bad model) → goes failed → retry works
+
+Implement now.

@@ -156,6 +156,13 @@ export const trainingCorpusItems = pgTable("training_corpus_items", {
   createdByWallet: varchar("created_by_wallet"),
   sourceAttemptId: varchar("source_attempt_id").references(() => trainAttempts.id),
   approvedAt: timestamp("approved_at"),
+  embedStatus: text("embed_status").notNull().default("not_embedded"), // not_embedded | queued | embedding | embedded | failed
+  embedError: text("embed_error"),
+  embedAttempts: integer("embed_attempts").notNull().default(0),
+  embedNextRetryAt: timestamp("embed_next_retry_at"),
+  contentHash: text("content_hash"),
+  lastEmbeddedHash: text("last_embedded_hash"),
+  embedUpdatedAt: timestamp("embed_updated_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
