@@ -19,6 +19,10 @@ import {
   type WalletBalance,
   type StakeLedgerEntry,
   type RewardsPool,
+  type AnswerEvent,
+  type QuestionAggregate,
+  type TrackAggregate,
+  type CycleAggregate,
   users,
   tracks,
   questions,
@@ -40,6 +44,10 @@ import {
   walletBalances,
   stakeLedger,
   rewardsPool,
+  answerEvents,
+  questionAggregates,
+  trackAggregates,
+  cycleAggregates,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, gte, lte, isNull, gt } from "drizzle-orm";
@@ -1011,6 +1019,209 @@ export class DbStorage implements IStorage {
       })
       .where(eq(rewardsPool.id, pool.id));
     return sweptAmount;
+  }
+
+  // Answer Events operations
+  async createAnswerEvent(data: {
+    walletAddress: string;
+    attemptId: string;
+    trackId: string;
+    questionId: string;
+    selectedAnswer: number;
+    isCorrect: boolean;
+    scorePct?: string;
+    attemptDurationSec?: number;
+    levelAtTime?: number;
+    autoDecision?: string;
+    cycleNumber?: number;
+  }): Promise<AnswerEvent> {
+    const result = await db
+      .insert(answerEvents)
+      .values({
+        walletAddress: data.walletAddress,
+        attemptId: data.attemptId,
+        trackId: data.trackId,
+        questionId: data.questionId,
+        selectedAnswer: data.selectedAnswer,
+        isCorrect: data.isCorrect,
+        scorePct: data.scorePct,
+        attemptDurationSec: data.attemptDurationSec,
+        levelAtTime: data.levelAtTime,
+        autoDecision: data.autoDecision,
+        cycleNumber: data.cycleNumber,
+      })
+      .returning();
+    return result[0];
+  }
+
+  async createAnswerEventsBatch(events: Array<{
+    walletAddress: string;
+    attemptId: string;
+    trackId: string;
+    questionId: string;
+    selectedAnswer: number;
+    isCorrect: boolean;
+    scorePct?: string;
+    attemptDurationSec?: number;
+    levelAtTime?: number;
+    autoDecision?: string;
+    cycleNumber?: number;
+  }>): Promise<number> {
+    if (events.length === 0) return 0;
+    await db.insert(answerEvents).values(events);
+    return events.length;
+  }
+
+  async deleteExpiredAnswerEvents(retentionDays: number): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+    const result = await db
+      .delete(answerEvents)
+      .where(lte(answerEvents.createdAt, cutoff));
+    return result.rowCount || 0;
+  }
+
+  // Aggregate operations
+  async getQuestionAggregates(trackId?: string): Promise<QuestionAggregate[]> {
+    if (trackId) {
+      return db
+        .select()
+        .from(questionAggregates)
+        .where(eq(questionAggregates.trackId, trackId));
+    }
+    return db.select().from(questionAggregates);
+  }
+
+  async getTrackAggregates(): Promise<TrackAggregate[]> {
+    return db.select().from(trackAggregates);
+  }
+
+  async getCycleAggregates(): Promise<CycleAggregate[]> {
+    return db.select().from(cycleAggregates);
+  }
+
+  async getCycleAggregate(cycleNumber: number): Promise<CycleAggregate | undefined> {
+    const result = await db
+      .select()
+      .from(cycleAggregates)
+      .where(eq(cycleAggregates.cycleNumber, cycleNumber))
+      .limit(1);
+    return result[0];
+  }
+
+  async computeAndUpsertQuestionAggregates(): Promise<number> {
+    const stats = await db
+      .select({
+        questionId: answerEvents.questionId,
+        trackId: answerEvents.trackId,
+        attemptsTotal: sql<number>`COUNT(*)::int`,
+        correctTotal: sql<number>`SUM(CASE WHEN ${answerEvents.isCorrect} THEN 1 ELSE 0 END)::int`,
+        avgDurationSec: sql<number>`AVG(${answerEvents.attemptDurationSec})`,
+      })
+      .from(answerEvents)
+      .groupBy(answerEvents.questionId, answerEvents.trackId);
+
+    for (const stat of stats) {
+      const accuracyPct = stat.attemptsTotal > 0
+        ? ((stat.correctTotal / stat.attemptsTotal) * 100).toFixed(2)
+        : "0";
+      const avgDuration = stat.avgDurationSec?.toFixed(2) || "0";
+
+      await db
+        .insert(questionAggregates)
+        .values({
+          questionId: stat.questionId,
+          trackId: stat.trackId,
+          attemptsTotal: stat.attemptsTotal,
+          correctTotal: stat.correctTotal,
+          accuracyPct,
+          avgDurationSec: avgDuration,
+          lastCalculatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: questionAggregates.questionId,
+          set: {
+            attemptsTotal: stat.attemptsTotal,
+            correctTotal: stat.correctTotal,
+            accuracyPct,
+            avgDurationSec: avgDuration,
+            lastCalculatedAt: new Date(),
+          },
+        });
+    }
+    return stats.length;
+  }
+
+  async computeAndUpsertTrackAggregates(): Promise<number> {
+    const stats = await db
+      .select({
+        trackId: answerEvents.trackId,
+        attemptsTotal: sql<number>`COUNT(*)::int`,
+        correctTotal: sql<number>`SUM(CASE WHEN ${answerEvents.isCorrect} THEN 1 ELSE 0 END)::int`,
+      })
+      .from(answerEvents)
+      .groupBy(answerEvents.trackId);
+
+    for (const stat of stats) {
+      const accuracyPct = stat.attemptsTotal > 0
+        ? ((stat.correctTotal / stat.attemptsTotal) * 100).toFixed(2)
+        : "0";
+
+      await db
+        .insert(trackAggregates)
+        .values({
+          trackId: stat.trackId,
+          attemptsTotal: stat.attemptsTotal,
+          accuracyPct,
+          lastCalculatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: trackAggregates.trackId,
+          set: {
+            attemptsTotal: stat.attemptsTotal,
+            accuracyPct,
+            lastCalculatedAt: new Date(),
+          },
+        });
+    }
+    return stats.length;
+  }
+
+  async computeAndUpsertCycleAggregates(): Promise<number> {
+    const stats = await db
+      .select({
+        cycleNumber: answerEvents.cycleNumber,
+        attemptsTotal: sql<number>`COUNT(*)::int`,
+        correctTotal: sql<number>`SUM(CASE WHEN ${answerEvents.isCorrect} THEN 1 ELSE 0 END)::int`,
+      })
+      .from(answerEvents)
+      .where(sql`${answerEvents.cycleNumber} IS NOT NULL`)
+      .groupBy(answerEvents.cycleNumber);
+
+    for (const stat of stats) {
+      if (stat.cycleNumber === null) continue;
+      const accuracyPct = stat.attemptsTotal > 0
+        ? ((stat.correctTotal / stat.attemptsTotal) * 100).toFixed(2)
+        : "0";
+
+      await db
+        .insert(cycleAggregates)
+        .values({
+          cycleNumber: stat.cycleNumber,
+          attemptsTotal: stat.attemptsTotal,
+          accuracyPct,
+          lastCalculatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: cycleAggregates.cycleNumber,
+          set: {
+            attemptsTotal: stat.attemptsTotal,
+            accuracyPct,
+            lastCalculatedAt: new Date(),
+          },
+        });
+    }
+    return stats.length;
   }
 }
 

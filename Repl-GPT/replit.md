@@ -97,6 +97,23 @@ Preferred communication style: Simple, everyday language.
   - HIVE_MINT: HIVE token mint address
   - REWARDS_WALLET_ADDRESS: Address for rewards distribution
 
+### Learning Telemetry Pipeline
+- **Answer Events**: Raw training telemetry logged per question answered (expires after retention period)
+  - Tracks wallet, attempt, track, question, selected answer, correctness
+  - Includes score, duration, level, auto-decision, and cycle number
+- **Aggregates**: Rolled up stats computed every 15 minutes (kept forever)
+  - question_aggregates: Per-question accuracy, attempt counts, average duration
+  - track_aggregates: Per-track accuracy and attempt counts
+  - cycle_aggregates: Per-cycle accuracy and attempt counts
+- **Retention Cleanup**: Runs every 24 hours, deletes events older than ANSWER_EVENTS_RETENTION_DAYS (default: 60)
+- **Stats Endpoints**:
+  - `GET /api/stats/tracks` - Track-level aggregate stats
+  - `GET /api/stats/questions?trackId=...` - Question-level stats optionally filtered by track
+  - `GET /api/stats/cycle/current` - Current cycle stats
+  - `GET /api/stats/cycles` - All cycle stats
+- **Environment Variables**:
+  - ANSWER_EVENTS_RETENTION_DAYS: Days to keep raw events (default: 60)
+
 ### Cosmetics System
 - **Style Credits**: Cosmetic-only currency (starts at 200)
   - Earn +20 credits for 90%+ session score

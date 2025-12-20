@@ -235,6 +235,50 @@ export const rewardsPool = pgTable("rewards_pool", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Answer Events - raw training telemetry (expires after retention period)
+export const answerEvents = pgTable("answer_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address").notNull(),
+  attemptId: varchar("attempt_id").notNull().references(() => trainAttempts.id),
+  trackId: varchar("track_id").notNull().references(() => tracks.id),
+  questionId: varchar("question_id").notNull().references(() => questions.id),
+  selectedAnswer: integer("selected_answer").notNull(),
+  isCorrect: boolean("is_correct").notNull(),
+  scorePct: numeric("score_pct", { precision: 5, scale: 4 }), // overall attempt score at time
+  attemptDurationSec: integer("attempt_duration_sec"),
+  levelAtTime: integer("level_at_time"),
+  autoDecision: varchar("auto_decision"), // approved | rejected | pending
+  cycleNumber: integer("cycle_number"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Question Aggregates - rolled up stats per question (kept forever)
+export const questionAggregates = pgTable("question_aggregates", {
+  questionId: varchar("question_id").primaryKey().references(() => questions.id),
+  trackId: varchar("track_id").notNull().references(() => tracks.id),
+  attemptsTotal: integer("attempts_total").notNull().default(0),
+  correctTotal: integer("correct_total").notNull().default(0),
+  accuracyPct: numeric("accuracy_pct", { precision: 5, scale: 2 }),
+  avgDurationSec: numeric("avg_duration_sec", { precision: 10, scale: 2 }),
+  lastCalculatedAt: timestamp("last_calculated_at").notNull().defaultNow(),
+});
+
+// Track Aggregates - rolled up stats per track (kept forever)
+export const trackAggregates = pgTable("track_aggregates", {
+  trackId: varchar("track_id").primaryKey().references(() => tracks.id),
+  attemptsTotal: integer("attempts_total").notNull().default(0),
+  accuracyPct: numeric("accuracy_pct", { precision: 5, scale: 2 }),
+  lastCalculatedAt: timestamp("last_calculated_at").notNull().defaultNow(),
+});
+
+// Cycle Aggregates - rolled up stats per cycle (kept forever)
+export const cycleAggregates = pgTable("cycle_aggregates", {
+  cycleNumber: integer("cycle_number").primaryKey(),
+  attemptsTotal: integer("attempts_total").notNull().default(0),
+  accuracyPct: numeric("accuracy_pct", { precision: 5, scale: 2 }),
+  lastCalculatedAt: timestamp("last_calculated_at").notNull().defaultNow(),
+});
+
 // Audit Logs - for tracking sensitive actions
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -255,6 +299,10 @@ export type Session = typeof sessions.$inferSelect;
 export type WalletBalance = typeof walletBalances.$inferSelect;
 export type StakeLedgerEntry = typeof stakeLedger.$inferSelect;
 export type RewardsPool = typeof rewardsPool.$inferSelect;
+export type AnswerEvent = typeof answerEvents.$inferSelect;
+export type QuestionAggregate = typeof questionAggregates.$inferSelect;
+export type TrackAggregate = typeof trackAggregates.$inferSelect;
+export type CycleAggregate = typeof cycleAggregates.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type Track = typeof tracks.$inferSelect;
 export type Question = typeof questions.$inferSelect;

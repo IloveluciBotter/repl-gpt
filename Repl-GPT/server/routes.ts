@@ -1059,7 +1059,9 @@ export async function registerRoutes(
     content: z.string().min(1),
     answers: z.array(z.number()).optional(),
     correctAnswers: z.array(z.number()).optional(),
+    questionIds: z.array(z.string()).optional(),
     startTime: z.number().optional(),
+    levelAtTime: z.number().optional(),
   });
 
   app.post("/api/train-attempts/submit", requireAuthMiddleware, requireHiveAccess, submitLimiter, async (req: Request, res: Response) => {
@@ -1242,6 +1244,42 @@ export async function registerRoutes(
           refundHive: feeSettlement.refundHive,
         },
       });
+      
+      // Log answer events for telemetry (only if all arrays have matching lengths)
+      if (body.answers && body.questionIds && 
+          body.questionIds.length === body.answers.length &&
+          body.answers.length > 0) {
+        try {
+          const answerEvents = body.answers.map((answer, idx) => ({
+            walletAddress: publicKey,
+            attemptId: attempt.id,
+            trackId: body.trackId,
+            questionId: body.questionIds![idx],
+            selectedAnswer: answer,
+            isCorrect: body.correctAnswers ? answer === body.correctAnswers[idx] : false,
+            scorePct: scorePct.toFixed(4),
+            attemptDurationSec,
+            levelAtTime: body.levelAtTime,
+            autoDecision: reviewResult.decision,
+            cycleNumber: currentCycle.cycleNumber,
+          }));
+          
+          const loggedCount = await storage.createAnswerEventsBatch(answerEvents);
+          
+          await audit.log("answer_events_logged", {
+            targetType: "answer_event",
+            targetId: attempt.id,
+            metadata: { count: loggedCount, trackId: body.trackId },
+          });
+        } catch (telemetryError) {
+          // Log error but don't fail the submission
+          logger.error({
+            requestId: req.requestId,
+            error: "Failed to log answer events",
+            details: telemetryError,
+          });
+        }
+      }
       
       res.json({
         ...updatedAttempt,
@@ -1674,6 +1712,61 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Save file error:", error);
       res.status(500).json({ error: "Failed to save file" });
+    }
+  });
+
+  // ===== STATS API =====
+  app.get("/api/stats/tracks", async (req: Request, res: Response) => {
+    try {
+      const aggregates = await storage.getTrackAggregates();
+      res.json(aggregates);
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Track stats error", details: error });
+      res.status(500).json({ error: "Failed to fetch track stats" });
+    }
+  });
+
+  app.get("/api/stats/questions", async (req: Request, res: Response) => {
+    try {
+      const trackId = req.query.trackId as string | undefined;
+      const aggregates = await storage.getQuestionAggregates(trackId);
+      res.json(aggregates);
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Question stats error", details: error });
+      res.status(500).json({ error: "Failed to fetch question stats" });
+    }
+  });
+
+  app.get("/api/stats/cycle/current", async (req: Request, res: Response) => {
+    try {
+      const currentCycle = await storage.getCurrentCycle();
+      if (!currentCycle) {
+        return res.status(404).json({ error: "No active cycle" });
+      }
+      const aggregate = await storage.getCycleAggregate(currentCycle.cycleNumber);
+      res.json({
+        cycleNumber: currentCycle.cycleNumber,
+        isActive: currentCycle.isActive,
+        startDate: currentCycle.startDate,
+        aggregate: aggregate || {
+          attemptsTotal: 0,
+          accuracyPct: "0",
+          lastCalculatedAt: null,
+        },
+      });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Cycle stats error", details: error });
+      res.status(500).json({ error: "Failed to fetch cycle stats" });
+    }
+  });
+
+  app.get("/api/stats/cycles", async (req: Request, res: Response) => {
+    try {
+      const aggregates = await storage.getCycleAggregates();
+      res.json(aggregates);
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Cycles stats error", details: error });
+      res.status(500).json({ error: "Failed to fetch cycles stats" });
     }
   });
 

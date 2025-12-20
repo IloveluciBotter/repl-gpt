@@ -23,7 +23,10 @@ export type AuditAction =
   | "fee_routed_to_rewards"
   | "auto_review_approved"
   | "auto_review_rejected"
-  | "auto_review_pending";
+  | "auto_review_pending"
+  | "answer_events_logged"
+  | "rollup_completed"
+  | "retention_cleanup";
 
 export type AuditTargetType =
   | "corpus_item"
@@ -36,7 +39,9 @@ export type AuditTargetType =
   | "model_version"
   | "stake"
   | "rewards_pool"
-  | "track";
+  | "track"
+  | "answer_event"
+  | "aggregate";
 
 export interface AuditLogEntry {
   action: AuditAction;

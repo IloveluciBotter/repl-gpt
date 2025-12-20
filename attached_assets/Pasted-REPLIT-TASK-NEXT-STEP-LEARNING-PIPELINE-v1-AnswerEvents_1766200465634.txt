@@ -1,0 +1,136 @@
+REPLIT TASK (NEXT STEP): LEARNING PIPELINE v1 — AnswerEvents + Aggregates + Retention (WRITE CODE + APPLY CHANGES)
+
+We have: auth, token gating, tracks/questions, training, auto-review, stake economy (or in progress). Now implement the learning telemetry pipeline.
+
+A) Add tables
+
+answer_events (raw, expires)
+
+id (uuid)
+
+walletAddress (text)
+
+attemptId (uuid)
+
+trackId (uuid)
+
+questionId (uuid)
+
+selectedAnswer (smallint or text)
+
+isCorrect (boolean)
+
+scorePct (real or int basis points)
+
+attemptDurationSec (int)
+
+levelAtTime (int)
+
+autoDecision (text: approved/rejected/pending)
+
+cycleNumber (int nullable)
+
+createdAt (timestamp)
+
+question_aggregates (kept forever)
+
+questionId (pk)
+
+trackId
+
+attemptsTotal (int)
+
+correctTotal (int)
+
+accuracyPct (real)
+
+avgDurationSec (real)
+
+lastCalculatedAt
+
+track_aggregates (kept forever)
+
+trackId (pk)
+
+attemptsTotal
+
+accuracyPct
+
+lastCalculatedAt
+
+(If cycles exist) add:
+4) cycle_aggregates (kept forever)
+
+cycleNumber (pk)
+
+attemptsTotal
+
+accuracyPct
+
+lastCalculatedAt
+
+B) Write events automatically
+
+Update POST /api/train-attempts/submit:
+
+For EACH answered question, insert an answer_events row.
+
+Always log events even if attempt ends up pending.
+
+C) Rollup job
+
+Add a scheduled job (cron is fine):
+
+every 15 minutes:
+
+compute aggregates from answer_events (recent or all)
+
+upsert into question_aggregates and track_aggregates
+
+if cycles exist, also update cycle_aggregates
+
+D) Retention (prevents storage blowup)
+
+Add a cleanup job:
+
+delete answer_events older than ANSWER_EVENTS_RETENTION_DAYS (default 60)
+
+DO NOT delete aggregates
+
+(Extra credit if easy): partition answer_events by month/week and drop partitions for retention.
+
+E) Stats API for dashboards + cycles
+
+Add endpoints:
+
+GET /api/stats/tracks → returns track_aggregates
+
+GET /api/stats/questions?trackId=... → returns question_aggregates filtered
+
+GET /api/stats/cycle/current (if cycles exist)
+
+F) Audit + logging
+
+Write audit logs:
+
+answer_events_logged (batched ok)
+
+rollup_completed
+
+retention_cleanup
+
+G) Deliverable
+
+After implementing, return:
+
+Files changed/added
+
+Example answer_events row
+
+Example /api/stats/tracks response
+
+Cron schedules used
+
+Confirm retention works and raw event storage stays bounded
+
+Implement now.
