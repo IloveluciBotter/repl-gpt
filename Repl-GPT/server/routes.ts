@@ -719,6 +719,78 @@ export async function registerRoutes(
     res.json({ isCreator: isCreator(publicKey) });
   });
 
+  // ===== RAG SEARCH =====
+  const ragSearchSchema = z.object({
+    query: z.string().min(1).max(2000),
+    k: z.number().int().min(1).max(20).optional(),
+    trackId: z.string().optional(),
+  });
+
+  app.post("/api/rag/search", requireAuthMiddleware, requireHiveAccess, async (req: Request, res: Response) => {
+    try {
+      const body = ragSearchSchema.parse(req.body);
+      const { searchCorpus, getRAGConfig } = await import("./services/rag");
+      const config = getRAGConfig();
+      
+      const k = body.k || config.defaultK;
+      const results = await searchCorpus(body.query, k, body.trackId);
+      
+      res.json({
+        query: body.query,
+        k,
+        trackId: body.trackId || null,
+        results: results.map(r => ({
+          corpusItemId: r.corpusItemId,
+          chunkText: r.chunkText,
+          score: r.score,
+          title: r.title,
+        })),
+        totalResults: results.length,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      logger.error({ requestId: req.requestId, error: "RAG search error", details: error });
+      res.status(500).json({ error: "Failed to search corpus" });
+    }
+  });
+
+  // Embed a corpus item (admin only)
+  app.post("/api/rag/embed/:id", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+    try {
+      const { embedCorpusItem } = await import("./services/rag");
+      const chunksCreated = await embedCorpusItem(req.params.id);
+      res.json({ success: true, chunksCreated });
+    } catch (error: any) {
+      logger.error({ requestId: req.requestId, error: "Embedding error", details: error.message });
+      res.status(500).json({ error: error.message || "Failed to embed corpus item" });
+    }
+  });
+
+  // Approve corpus item and auto-embed (admin only)
+  app.post("/api/corpus/:id/approve", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
+    try {
+      const { approveCorpusItem } = await import("./services/rag");
+      const success = await approveCorpusItem(req.params.id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Corpus item not found" });
+      }
+      
+      await audit.log("corpus_item_approved", {
+        targetType: "corpus_item",
+        targetId: req.params.id,
+      });
+      
+      res.json({ success: true, message: "Corpus item approved and embedded" });
+    } catch (error: any) {
+      logger.error({ requestId: req.requestId, error: "Approval error", details: error.message });
+      res.status(500).json({ error: "Failed to approve corpus item" });
+    }
+  });
+
   // ===== AI CHAT =====
   const chatMessageSchema = z.object({
     message: z.string().min(1).max(2000),
@@ -749,6 +821,9 @@ export async function registerRoutes(
       let response: string;
       let corpusItemsUsed: string[];
       
+      let sources: Array<{ chunkText: string; score: number; title: string | null }> = [];
+      let isGrounded = false;
+      
       try {
         const result = await generateChatResponse(
           body.message,
@@ -757,6 +832,8 @@ export async function registerRoutes(
         );
         response = result.response;
         corpusItemsUsed = result.corpusItemsUsed;
+        sources = result.sources;
+        isGrounded = result.isGrounded;
       } catch (error: any) {
         logger.error({ requestId: req.requestId, error: "[AI Chat] Ollama error", details: error.message });
         captureError(error, { requestId: req.requestId, walletAddress: publicKey });
@@ -790,6 +867,8 @@ export async function registerRoutes(
         corpusItemsUsed: corpusItemsUsed.length,
         aiLevel,
         track: body.track,
+        sources,
+        isGrounded,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {

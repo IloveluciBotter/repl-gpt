@@ -58,6 +58,23 @@ Preferred communication style: Simple, everyday language.
 - **Level Selection**: Players can choose any unlocked level (1 to maxUnlockedLevel)
 - **AI Chat**: Intelligence-based responses that vary with intelligenceLevel (basic to elite)
 
+### RAG (Retrieval Augmented Generation)
+- **Vector Search**: pgvector-enabled database with 768-dimension embeddings using cosine similarity
+- **Text Chunking**: 1000 character chunks with 200 character overlap for long corpus items
+- **Embedding Service**: Ollama API with gemma3:4b model (configurable via OLLAMA_EMBED_MODEL)
+- **Source Grounding**: AI chat responses include `isGrounded` flag and `sources` array with similarity scores
+- **Approval Workflow**: Corpus items are embedded automatically when approved by admin
+- **Endpoints**:
+  - `POST /api/rag/search` - Vector similarity search with query, k, and optional trackId
+  - `POST /api/rag/embed/:id` - Manually embed a corpus item (admin only)
+  - `POST /api/corpus/:id/approve` - Approve and auto-embed corpus item (admin only)
+
+### Auto-Review System
+- **Perfect Score Rule**: 100% accuracy + 30s+ duration = auto-approve
+- **Low Score Rule**: ≤40% accuracy = auto-reject
+- **Pending Review**: Scores between 40-100% go to manual review queue
+- **Environment Variables**: AUTO_REVIEW_ENABLED (default true), AUTO_REVIEW_MIN_DURATION_SEC (default 30)
+
 ### Cosmetics System
 - **Style Credits**: Cosmetic-only currency (starts at 200)
   - Earn +20 credits for 90%+ session score

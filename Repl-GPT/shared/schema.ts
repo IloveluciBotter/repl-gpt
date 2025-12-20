@@ -148,11 +148,26 @@ export const trainingPool = pgTable("training_pool", {
 // Training Corpus Items - the canonical dataset the official HiveMind AI learns from
 export const trainingCorpusItems = pgTable("training_corpus_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  trackId: varchar("track_id").notNull().references(() => tracks.id),
-  cycleId: varchar("cycle_id").notNull().references(() => cycles.id),
+  trackId: varchar("track_id").references(() => tracks.id),
+  cycleId: varchar("cycle_id").references(() => cycles.id),
+  title: text("title"),
   normalizedText: text("normalized_text").notNull(),
+  status: text("status").notNull().default("draft"), // draft | approved | rejected
+  createdByWallet: varchar("created_by_wallet"),
   sourceAttemptId: varchar("source_attempt_id").references(() => trainAttempts.id),
-  approvedAt: timestamp("approved_at").notNull().defaultNow(),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Corpus Chunks - chunked text with vector embeddings for RAG
+export const corpusChunks = pgTable("corpus_chunks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  corpusItemId: varchar("corpus_item_id").notNull().references(() => trainingCorpusItems.id),
+  chunkIndex: integer("chunk_index").notNull(),
+  chunkText: text("chunk_text").notNull(),
+  embedding: text("embedding"), // JSON array of floats (pgvector handled separately)
+  embeddingModel: text("embedding_model"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -220,6 +235,7 @@ export type HubPost = typeof hubPosts.$inferSelect;
 export type HubSubmission = typeof hubSubmissions.$inferSelect;
 export type TrainingPool = typeof trainingPool.$inferSelect;
 export type TrainingCorpusItem = typeof trainingCorpusItems.$inferSelect;
+export type CorpusChunk = typeof corpusChunks.$inferSelect;
 
 // Insert schemas
 export const insertTrackSchema = createInsertSchema(tracks).omit({ id: true, createdAt: true });

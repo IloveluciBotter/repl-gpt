@@ -1,6 +1,7 @@
 import { Ollama } from "ollama";
 import { storage } from "./storage";
 import type { TrainingCorpusItem } from "@shared/schema";
+import { searchCorpus, formatSourcesForPrompt, type ChunkResult } from "./services/rag";
 
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || (OLLAMA_API_KEY ? "https://ollama.com" : "");
@@ -149,27 +150,42 @@ export async function checkOllamaHealth(): Promise<OllamaHealthStatus> {
   }
 }
 
+export interface ChatResponseResult {
+  response: string;
+  corpusItemsUsed: string[];
+  sources: Array<{ chunkText: string; score: number; title: string | null }>;
+  isGrounded: boolean;
+}
+
 export async function generateChatResponse(
   userMessage: string,
   aiLevel: number,
   trackId?: string
-): Promise<{ response: string; corpusItemsUsed: string[] }> {
+): Promise<ChatResponseResult> {
   const style = getIntelligenceStyle(aiLevel);
   
-  const corpusItems = await storage.searchCorpusItems(userMessage, trackId, 5);
-  const corpusContext = buildContextFromCorpus(corpusItems);
-  const corpusItemIds = corpusItems.map(item => item.id);
+  let ragSources: ChunkResult[] = [];
+  let corpusItemIds: string[] = [];
+  let isGrounded = false;
   
-  const hasCorpusKnowledge = corpusItems.length > 0;
+  try {
+    ragSources = await searchCorpus(userMessage, 5, trackId);
+    corpusItemIds = [...new Set(ragSources.map(s => s.corpusItemId))];
+    isGrounded = ragSources.length > 0;
+  } catch (error: any) {
+    console.warn("[RAG] Search failed, falling back to ungrounded response:", error.message);
+  }
+  
+  const ragContext = formatSourcesForPrompt(ragSources);
   
   let systemPrompt = style.systemPrompt;
-  if (corpusContext) {
-    systemPrompt += corpusContext;
+  if (ragContext) {
+    systemPrompt += ragContext;
+    systemPrompt += "\n\nIMPORTANT: Base your response on the provided sources. Cite specific information from them when relevant.";
   } else if (aiLevel < 10) {
     systemPrompt += "\n\nNote: You don't have specific training data for this topic yet. Be honest about this limitation.";
   }
   
-  // Check if Ollama is available
   if (!ollama || !OLLAMA_BASE_URL) {
     throw new Error("Official AI is offline");
   }
@@ -189,13 +205,21 @@ export async function generateChatResponse(
     
     let aiResponse = response.message.content;
     
-    if (!hasCorpusKnowledge && aiLevel < 10) {
+    if (!isGrounded && aiLevel < 10) {
       aiResponse += "\n\n(Note: This topic isn't in my training corpus yet. The community can help me learn more!)";
+    } else if (!isGrounded) {
+      aiResponse += "\n\n[Ungrounded response - not based on verified corpus data]";
     }
     
     return {
       response: aiResponse,
       corpusItemsUsed: corpusItemIds,
+      sources: ragSources.map(s => ({
+        chunkText: s.chunkText.slice(0, 200) + (s.chunkText.length > 200 ? "..." : ""),
+        score: s.score,
+        title: s.title,
+      })),
+      isGrounded,
     };
   } catch (error: any) {
     console.error(`[Ollama] Chat error for ${OLLAMA_BASE_URL}:`, error.message || error);
