@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, bigint, boolean, timestamp, jsonb, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, bigint, boolean, timestamp, jsonb, numeric, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -224,7 +224,9 @@ export const stakeLedger = pgTable("stake_ledger", {
   attemptId: varchar("attempt_id").references(() => trainAttempts.id),
   metadata: jsonb("metadata").$type<Record<string, any>>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  attemptReasonUnique: uniqueIndex("stake_ledger_attempt_reason_idx").on(table.attemptId, table.reason),
+}));
 
 // Rewards Pool - accounting for collected fees
 export const rewardsPool = pgTable("rewards_pool", {

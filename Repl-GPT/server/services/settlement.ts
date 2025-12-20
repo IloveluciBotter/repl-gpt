@@ -26,6 +26,12 @@ export async function settleTrainingAttempt(
       const passed = scorePct >= economyConfig.passThreshold;
       const feeSettlement = calculateFeeSettlement(feeHive, scorePct, passed);
       
+      await tx.execute(sql`
+        SELECT id FROM wallet_balances 
+        WHERE wallet_address = ${walletAddress} 
+        FOR UPDATE
+      `);
+      
       const existingRefund = await tx
         .select({ id: stakeLedger.id })
         .from(stakeLedger)
@@ -89,14 +95,18 @@ export async function settleTrainingAttempt(
         
         stakeAfter = parseFloat(updated[0].newBalance);
         
-        await tx.insert(stakeLedger).values({
-          walletAddress,
-          amount: refundAmount,
-          balanceAfter: stakeAfter.toFixed(8),
-          reason: "fee_refund",
-          attemptId,
-          metadata: { scorePct, refundHive: feeSettlement.refundHive },
-        });
+        await tx.execute(sql`
+          INSERT INTO stake_ledger (wallet_address, amount, balance_after, reason, attempt_id, metadata)
+          VALUES (
+            ${walletAddress},
+            ${refundAmount},
+            ${stakeAfter.toFixed(8)},
+            'fee_refund',
+            ${attemptId},
+            ${JSON.stringify({ scorePct, refundHive: feeSettlement.refundHive })}::jsonb
+          )
+          ON CONFLICT (attempt_id, reason) DO NOTHING
+        `);
       } else if (hasRefundEntry) {
         const [currentBalance] = await tx
           .select({ stake: walletBalances.trainingStakeHive })
@@ -133,14 +143,18 @@ export async function settleTrainingAttempt(
           throw new Error("Failed to update rewards pool");
         }
         
-        await tx.insert(stakeLedger).values({
-          walletAddress,
-          amount: (-feeSettlement.costHive).toFixed(8),
-          balanceAfter: stakeAfter.toFixed(8),
-          reason: "fee_cost_to_rewards",
-          attemptId,
-          metadata: { costHive: feeSettlement.costHive, scorePct },
-        });
+        await tx.execute(sql`
+          INSERT INTO stake_ledger (wallet_address, amount, balance_after, reason, attempt_id, metadata)
+          VALUES (
+            ${walletAddress},
+            ${(-feeSettlement.costHive).toFixed(8)},
+            ${stakeAfter.toFixed(8)},
+            'fee_cost_to_rewards',
+            ${attemptId},
+            ${JSON.stringify({ costHive: feeSettlement.costHive, scorePct })}::jsonb
+          )
+          ON CONFLICT (attempt_id, reason) DO NOTHING
+        `);
       }
       
       return {
