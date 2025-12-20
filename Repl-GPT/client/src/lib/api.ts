@@ -23,14 +23,31 @@ async function fetchApi<T>(
 
 export const api = {
   auth: {
-    getChallenge: (publicKey: string) =>
-      fetchApi<{ nonce: string }>(`/api/auth/challenge?publicKey=${publicKey}`),
+    getNonce: (wallet: string) =>
+      fetchApi<{ nonce: string; message: string; expiresAt: string }>(
+        `/api/auth/nonce?wallet=${wallet}`
+      ),
 
-    verify: (publicKey: string, signature: string, nonce: string) =>
-      fetchApi<{ success: boolean; token: string }>("/api/auth/verify", {
+    getChallenge: (publicKey: string) =>
+      fetchApi<{ nonce: string; message: string; expiresAt: string }>(
+        `/api/auth/challenge?publicKey=${publicKey}`
+      ),
+
+    verify: (wallet: string, signature: string, nonce: string) =>
+      fetchApi<{ ok: boolean; expiresAt: string }>("/api/auth/verify", {
         method: "POST",
-        body: JSON.stringify({ publicKey, signature, nonce }),
+        body: JSON.stringify({ wallet, signature, nonce }),
       }),
+
+    logout: () =>
+      fetchApi<{ ok: boolean }>("/api/auth/logout", {
+        method: "POST",
+      }),
+
+    session: () =>
+      fetchApi<{ authenticated: boolean; walletAddress: string; domain: string }>(
+        "/api/auth/session"
+      ),
 
     isCreator: () => fetchApi<{ isCreator: boolean }>("/api/auth/is-creator"),
   },

@@ -14,6 +14,8 @@ import {
   type HubSubmission,
   type TrainingCorpusItem,
   type ChatMessage,
+  type AuthNonce,
+  type Session,
   users,
   tracks,
   questions,
@@ -29,9 +31,11 @@ import {
   trainingPool,
   trainingCorpusItems,
   chatMessages,
+  authNonces,
+  sessions,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, isNull, gt } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -154,6 +158,20 @@ export interface IStorage {
     corpusItemsUsed?: string[];
   }): Promise<ChatMessage>;
   getChatHistory(walletAddress: string, limit?: number): Promise<ChatMessage[]>;
+
+  // Auth nonce operations
+  createNonce(walletAddress: string, nonce: string, message: string, expiresAt: Date): Promise<AuthNonce>;
+  getUnusedNonce(walletAddress: string, nonce: string): Promise<AuthNonce | undefined>;
+  markNonceUsed(id: string): Promise<void>;
+  consumeNonceAtomic(walletAddress: string, nonce: string): Promise<AuthNonce | undefined>;
+  cleanupExpiredNonces(): Promise<void>;
+
+  // Session operations
+  createSession(walletAddress: string, sessionTokenHash: string, expiresAt: Date): Promise<Session>;
+  getSessionByTokenHash(sessionTokenHash: string): Promise<Session | undefined>;
+  revokeSession(id: string): Promise<void>;
+  revokeAllUserSessions(walletAddress: string): Promise<void>;
+  cleanupExpiredSessions(): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -676,6 +694,102 @@ export class DbStorage implements IStorage {
       .where(eq(chatMessages.walletAddress, walletAddress))
       .orderBy(desc(chatMessages.createdAt))
       .limit(limit);
+  }
+
+  // Auth nonce operations
+  async createNonce(walletAddress: string, nonce: string, message: string, expiresAt: Date): Promise<AuthNonce> {
+    const result = await db.insert(authNonces).values({
+      walletAddress,
+      nonce,
+      message,
+      expiresAt,
+    }).returning();
+    return result[0];
+  }
+
+  async getUnusedNonce(walletAddress: string, nonce: string): Promise<AuthNonce | undefined> {
+    const now = new Date();
+    const result = await db
+      .select()
+      .from(authNonces)
+      .where(
+        and(
+          eq(authNonces.walletAddress, walletAddress),
+          eq(authNonces.nonce, nonce),
+          isNull(authNonces.usedAt),
+          gt(authNonces.expiresAt, now)
+        )
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  async markNonceUsed(id: string): Promise<void> {
+    await db.update(authNonces).set({ usedAt: new Date() }).where(eq(authNonces.id, id));
+  }
+
+  async consumeNonceAtomic(walletAddress: string, nonce: string): Promise<AuthNonce | undefined> {
+    const now = new Date();
+    const result = await db
+      .update(authNonces)
+      .set({ usedAt: now })
+      .where(
+        and(
+          eq(authNonces.walletAddress, walletAddress),
+          eq(authNonces.nonce, nonce),
+          isNull(authNonces.usedAt),
+          gt(authNonces.expiresAt, now)
+        )
+      )
+      .returning();
+    return result[0];
+  }
+
+  async cleanupExpiredNonces(): Promise<void> {
+    const now = new Date();
+    await db.delete(authNonces).where(lte(authNonces.expiresAt, now));
+  }
+
+  // Session operations
+  async createSession(walletAddress: string, sessionTokenHash: string, expiresAt: Date): Promise<Session> {
+    const result = await db.insert(sessions).values({
+      walletAddress,
+      sessionTokenHash,
+      expiresAt,
+    }).returning();
+    return result[0];
+  }
+
+  async getSessionByTokenHash(sessionTokenHash: string): Promise<Session | undefined> {
+    const now = new Date();
+    const result = await db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.sessionTokenHash, sessionTokenHash),
+          isNull(sessions.revokedAt),
+          gt(sessions.expiresAt, now)
+        )
+      )
+      .limit(1);
+    return result[0];
+  }
+
+  async revokeSession(id: string): Promise<void> {
+    await db.update(sessions).set({ revokedAt: new Date() }).where(eq(sessions.id, id));
+  }
+
+  async revokeAllUserSessions(walletAddress: string): Promise<void> {
+    await db
+      .update(sessions)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(sessions.walletAddress, walletAddress), isNull(sessions.revokedAt)));
+  }
+
+  async cleanupExpiredSessions(): Promise<void> {
+    const now = new Date();
+    await db.delete(sessions).where(lte(sessions.expiresAt, now));
   }
 }
 

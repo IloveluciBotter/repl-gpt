@@ -164,7 +164,30 @@ export const chatMessages = pgTable("chat_messages", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Auth Nonces - for secure wallet authentication
+export const authNonces = pgTable("auth_nonces", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address").notNull(),
+  nonce: varchar("nonce").notNull(),
+  message: text("message").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Sessions - server-side session storage
+export const sessions = pgTable("sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: varchar("wallet_address").notNull(),
+  sessionTokenHash: varchar("session_token_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Types
+export type AuthNonce = typeof authNonces.$inferSelect;
+export type Session = typeof sessions.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type Track = typeof tracks.$inferSelect;
 export type Question = typeof questions.$inferSelect;

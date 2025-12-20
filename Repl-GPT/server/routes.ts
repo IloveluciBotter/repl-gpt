@@ -5,16 +5,17 @@ import { z } from "zod";
 import { readdir, readFile, writeFile, stat } from "fs/promises";
 import { join } from "path";
 import {
-  generateNonce,
-  storeNonce,
-  verifyNonce,
+  issueNonce,
+  consumeNonce,
   verifySignature,
-  issueToken,
+  createSession,
   requireAuth as requireAuthMiddleware,
   requireHiveAccess,
   checkHiveAccess,
   requireCreator,
   isCreator,
+  getPublicAppDomain,
+  revokeSession,
 } from "./auth";
 
 // Helper to get user ID from session (simplified - you may want to add proper auth)
@@ -110,58 +111,113 @@ export async function registerRoutes(
   });
 
   // ===== AUTHENTICATION =====
-  app.get("/api/auth/challenge", (req: Request, res: Response) => {
-    const publicKey = req.query.publicKey as string;
-    if (!publicKey) {
-      return res.status(400).json({ error: "publicKey query parameter required" });
-    }
+  
+  // Nonce endpoint - generates a secure, single-use nonce for wallet authentication
+  app.get("/api/auth/nonce", async (req: Request, res: Response) => {
+    try {
+      const wallet = req.query.wallet as string;
+      if (!wallet || wallet.length < 32) {
+        return res.status(400).json({ error: "Valid wallet address required", code: "INVALID_WALLET" });
+      }
 
-    const nonce = generateNonce();
-    storeNonce(publicKey, nonce);
-    res.json({ nonce });
+      const { nonce, message, expiresAt } = await issueNonce(wallet);
+      res.json({ nonce, message, expiresAt: expiresAt.toISOString() });
+    } catch (error) {
+      console.error("Nonce generation error:", error);
+      res.status(500).json({ error: "Failed to generate nonce" });
+    }
+  });
+
+  // Legacy challenge endpoint (redirects to nonce)
+  app.get("/api/auth/challenge", async (req: Request, res: Response) => {
+    try {
+      const publicKey = req.query.publicKey as string;
+      if (!publicKey || publicKey.length < 32) {
+        return res.status(400).json({ error: "Valid publicKey query parameter required" });
+      }
+
+      const { nonce, message, expiresAt } = await issueNonce(publicKey);
+      res.json({ nonce, message, expiresAt: expiresAt.toISOString() });
+    } catch (error) {
+      console.error("Challenge generation error:", error);
+      res.status(500).json({ error: "Failed to generate challenge" });
+    }
   });
 
   const verifySchema = z.object({
-    publicKey: z.string(),
+    wallet: z.string().min(32).optional(),
+    publicKey: z.string().min(32).optional(),
     signature: z.string(),
     nonce: z.string(),
+  }).refine((data) => data.wallet || data.publicKey, {
+    message: "Either wallet or publicKey is required",
   });
 
   app.post("/api/auth/verify", async (req: Request, res: Response) => {
     try {
       const body = verifySchema.parse(req.body);
+      const walletAddress = body.wallet || body.publicKey!;
 
-      // Verify nonce
-      if (!verifyNonce(body.publicKey, body.nonce)) {
-        return res.status(400).json({ error: "Invalid or expired nonce" });
+      // Consume nonce (single-use, validates expiry)
+      const nonceResult = await consumeNonce(walletAddress, body.nonce);
+      if (!nonceResult.valid || !nonceResult.message) {
+        return res.status(400).json({ 
+          error: nonceResult.error || "Invalid or expired nonce",
+          code: "INVALID_NONCE"
+        });
       }
 
-      // Verify signature
-      const message = `Sign this message to authenticate: ${body.nonce}`;
-      const isValid = await verifySignature(body.publicKey, body.signature, message);
+      // Verify signature against the exact server-generated message
+      const isValid = await verifySignature(walletAddress, body.signature, nonceResult.message);
       if (!isValid) {
-        return res.status(401).json({ error: "Invalid signature" });
+        return res.status(401).json({ error: "Invalid signature", code: "INVALID_SIGNATURE" });
       }
 
-      // Issue JWT token
-      const token = issueToken(body.publicKey);
+      // Create server-side session
+      const { sessionToken, expiresAt } = await createSession(walletAddress);
 
-      // Set httpOnly cookie
-      res.cookie("authToken", token, {
+      // Set httpOnly cookie with raw session token
+      res.cookie("sid", sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: "/",
       });
 
-      res.json({ success: true, token });
+      res.json({ ok: true, expiresAt: expiresAt.toISOString() });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.errors });
+        return res.status(400).json({ error: error.errors, code: "VALIDATION_ERROR" });
       }
       console.error("Auth verify error:", error);
       res.status(500).json({ error: "Failed to verify authentication" });
     }
+  });
+
+  // Logout endpoint
+  app.post("/api/auth/logout", requireAuthMiddleware, async (req: Request, res: Response) => {
+    try {
+      const sessionId = (req as any).sessionId;
+      if (sessionId) {
+        await revokeSession(sessionId);
+      }
+      res.clearCookie("sid", { path: "/" });
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ error: "Failed to logout" });
+    }
+  });
+
+  // Session status endpoint
+  app.get("/api/auth/session", requireAuthMiddleware, (req: Request, res: Response) => {
+    const walletAddress = (req as any).walletAddress;
+    res.json({ 
+      authenticated: true, 
+      walletAddress,
+      domain: getPublicAppDomain()
+    });
   });
 
   // ===== GATE STATUS =====

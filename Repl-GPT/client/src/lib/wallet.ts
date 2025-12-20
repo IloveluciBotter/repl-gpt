@@ -56,6 +56,11 @@ export async function connectWallet(): Promise<{
 }
 
 export async function disconnectWallet(): Promise<void> {
+  try {
+    await api.auth.logout();
+  } catch (error) {
+    console.error("Logout error:", error);
+  }
   if (window.solana) {
     await window.solana.disconnect();
   }
@@ -65,9 +70,8 @@ export async function authenticateWallet(
   publicKey: string
 ): Promise<boolean> {
   try {
-    const { nonce } = await api.auth.getChallenge(publicKey);
+    const { nonce, message } = await api.auth.getNonce(publicKey);
 
-    const message = `Sign this message to authenticate: ${nonce}`;
     const encodedMessage = new TextEncoder().encode(message);
 
     if (!window.solana) {
@@ -83,12 +87,27 @@ export async function authenticateWallet(
       String.fromCharCode.apply(null, Array.from(new Uint8Array(signature)))
     );
 
-    await api.auth.verify(publicKey, signatureBase64, nonce);
+    const result = await api.auth.verify(publicKey, signatureBase64, nonce);
 
-    return true;
+    return result.ok === true;
   } catch (error) {
     console.error("Authentication error:", error);
     return false;
+  }
+}
+
+export async function checkSession(): Promise<{
+  authenticated: boolean;
+  walletAddress: string | null;
+}> {
+  try {
+    const result = await api.auth.session();
+    return {
+      authenticated: result.authenticated,
+      walletAddress: result.walletAddress,
+    };
+  } catch {
+    return { authenticated: false, walletAddress: null };
   }
 }
 

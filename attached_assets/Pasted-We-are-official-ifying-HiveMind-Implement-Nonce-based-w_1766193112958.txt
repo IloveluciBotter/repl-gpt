@@ -1,0 +1,97 @@
+We are “official-ifying” HiveMind. Implement Nonce-based wallet auth + server-side sessions (no replay attacks). You MUST write code and update the project.
+
+Requirements
+
+Nonce flow
+
+Add GET /api/auth/nonce?wallet=...
+
+Validate wallet string exists
+
+Generate cryptographically secure nonce (random)
+
+Expires in 10 minutes
+
+Store nonce in DB as unused
+
+Return { nonce, message, expiresAt }
+
+Message must be EXACTLY server-generated and domain-bound:
+
+HiveMind Login
+Domain: <PUBLIC_APP_DOMAIN>
+Wallet: <WALLET>
+Nonce: <NONCE>
+Issued At: <ISO_TIMESTAMP>
+
+
+Verify flow
+
+Add POST /api/auth/verify with body { wallet, nonce, signature }
+
+Lookup matching nonce row for wallet+nonce that is unused + not expired
+
+Verify Solana signature against the stored server message (tweetnacl + bs58 + PublicKey)
+
+Mark nonce as used (single-use)
+
+Create a server-side session with a random session token
+
+Store only a hash of the session token in DB (never store raw token)
+
+Set httpOnly cookie sid=<RAW_SESSION_TOKEN>
+
+Return { ok: true } (and optionally basic user data)
+
+Sessions
+
+Add sessions table: walletAddress, sessionTokenHash, expiresAt, revokedAt, createdAt
+
+Session duration: 7 days
+
+Add auth middleware requireAuth:
+
+Reads cookie sid
+
+Hashes it
+
+Finds active session not expired + not revoked
+
+Attaches req.user = { walletAddress, sessionId }
+
+Rejects with 401 JSON on failure
+
+Apply requireAuth to all protected endpoints (Chat, Train/answers, submissions, review, cosmetics).
+If unsure which routes are sensitive, protect anything that changes state or reveals gated info.
+
+DB schema
+
+Add auth_nonces table: walletAddress, nonce, message, expiresAt, usedAt, createdAt
+
+Index walletAddress+nonce
+
+Nonce expiry: 10 min
+
+Nonce single-use enforced by DB update
+
+Config
+
+Add env var PUBLIC_APP_DOMAIN (use current deployed domain, fallback allowed)
+
+Ensure cookies work in dev + production (secure flag in prod)
+
+No silent fallbacks
+
+If verification fails, respond with explicit error JSON + status (400/401)
+
+Deliverable
+
+After coding, respond with:
+
+Which files you changed/added
+
+What DB migrations were created/applied
+
+How to test with Phantom (exact steps)
+
+A list of acceptance tests (replay attack fails, expired nonce fails, wrong domain/message fails)
