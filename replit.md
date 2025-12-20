@@ -30,10 +30,18 @@ Preferred communication style: Simple, everyday language.
 - **Static Serving**: Express serves Vite-built frontend from `dist/public`
 
 ### Data Storage
-- **Database**: PostgreSQL with Drizzle ORM
+- **Database**: PostgreSQL with Drizzle ORM and pgvector extension
 - **Schema Location**: `shared/schema.ts` with Zod validation via drizzle-zod
 - **Client State**: localStorage for game progress (intelligence level, scores, sessions)
-- **Tables**: users, tracks, questions, phrases, train_attempts, reviews, locks, model_versions, benchmarks, hub_posts, hub_submissions, cycles, training_pool
+- **Tables**: users, tracks, questions, phrases, train_attempts, reviews, locks, model_versions, benchmarks, hub_posts, hub_submissions, cycles, training_pool, corpus_items, corpus_chunks
+- **Vector Search**: pgvector cosine distance (<=>) for semantic similarity on corpus_chunks
+
+### RAG (Retrieval-Augmented Generation)
+- **Embeddings**: Ollama with nomic-embed-text model (1024 dimensions)
+- **Chunking**: Sentences split with overlap, stored in corpus_chunks table
+- **Services**: `server/services/embedding.ts` for embeddings, `server/services/rag.ts` for search
+- **Corpus Status**: Items can be draft/approved/rejected; only approved items are indexed for RAG
+- **Chat Integration**: Sources displayed as expandable citations with relevance scores; ungrounded responses show warning
 
 ### Key Design Patterns
 - **Screen-based Navigation**: Single-page app with show/hide screens (home, training, result, chat, corpus)
