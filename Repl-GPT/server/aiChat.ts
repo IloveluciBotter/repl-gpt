@@ -4,7 +4,7 @@ import type { TrainingCorpusItem } from "@shared/schema";
 
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || (OLLAMA_API_KEY ? "https://ollama.com" : "");
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "gemma3:12b";
 
 // Create ollama instance with authentication if API key is provided
 const ollama = OLLAMA_BASE_URL ? new Ollama({ 
