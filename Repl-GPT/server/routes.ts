@@ -329,7 +329,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/benchmark-questions", publicReadLimiter, async (req: Request, res: Response) => {
+  app.get(["/api/benchmark-questions", "/api/benchmark/questions"], publicReadLimiter, async (req: Request, res: Response) => {
     try {
       const questions = await storage.getBenchmarkQuestions();
       res.json(questions);
