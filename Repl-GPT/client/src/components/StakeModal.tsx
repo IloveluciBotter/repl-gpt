@@ -156,16 +156,24 @@ export function StakeModal({
         ),
       );
 
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
+      const latest = await connection.getLatestBlockhash("confirmed");
+      transaction.recentBlockhash = latest.blockhash;
       transaction.feePayer = fromPubkey;
 
       const signedTx = await wallet.signTransaction(transaction);
       const signature = await connection.sendRawTransaction(
         signedTx.serialize(),
+        { skipPreflight: false },
       );
 
-      await connection.confirmTransaction(signature, "confirmed");
+      await connection.confirmTransaction(
+        {
+          signature,
+          blockhash: latest.blockhash,
+          lastValidBlockHeight: latest.lastValidBlockHeight,
+        },
+        "confirmed",
+      );
 
       setTxSignature(signature);
       setStep("confirming");
