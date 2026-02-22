@@ -7,7 +7,15 @@ import { getHivePrice } from "./jupiter";
 import { storage } from "./storage";
 
 const CREATOR_PUBLIC_KEY = process.env.CREATOR_PUBLIC_KEY || "";
-const PUBLIC_APP_DOMAIN = process.env.PUBLIC_APP_DOMAIN || process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER?.toLowerCase()}.repl.co` : "localhost";
+const PUBLIC_APP_DOMAIN =
+  process.env.PUBLIC_APP_DOMAIN ||
+  (process.env.REPL_SLUG
+    ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER?.toLowerCase()}.repl.co`
+    : "localhost");
+
+if (process.env.NODE_ENV !== "production") {
+  console.log(`[auth] PUBLIC_APP_DOMAIN resolved to: ${PUBLIC_APP_DOMAIN}`);
+}
 
 const MIN_HIVE_ACCESS = parseFloat(process.env.MIN_HIVE_ACCESS || "50");
 const MIN_USD_ACCESS = parseFloat(process.env.MIN_USD_ACCESS || "1");
