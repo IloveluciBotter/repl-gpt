@@ -8,6 +8,7 @@ import { httpLogger, logger } from "./middleware/logger";
 import { initSentry, sentryErrorHandler, captureError } from "./sentry";
 import { startTelemetryJobs } from "./services/telemetryJobs";
 import { startEmbedWorker } from "./services/embedWorker";
+import { initDatabase } from "./dbInit";
 
 initSentry();
 
@@ -39,6 +40,7 @@ export function log(message: string, source = "express") {
 }
 
 (async () => {
+  await initDatabase();
   await registerRoutes(httpServer, app);
   
   startTelemetryJobs();
