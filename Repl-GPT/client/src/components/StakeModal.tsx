@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
-import { X, Coins, ArrowRight, Check, AlertTriangle, Loader2, ExternalLink, Copy } from "lucide-react";
+import {
+  X,
+  Coins,
+  ArrowRight,
+  Check,
+  AlertTriangle,
+  Loader2,
+  ExternalLink,
+  Copy,
+} from "lucide-react";
 import { api } from "@/lib/api";
 
 interface StakeModalProps {
@@ -12,7 +21,13 @@ interface StakeModalProps {
 
 type Step = "input" | "sending" | "confirming" | "success" | "error";
 
-export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStakeUpdated }: StakeModalProps) {
+export function StakeModal({
+  isOpen,
+  onClose,
+  currentStake,
+  requiredFee,
+  onStakeUpdated,
+}: StakeModalProps) {
   const [step, setStep] = useState<Step>("input");
   const [amount, setAmount] = useState<string>("");
   const [vaultAddress, setVaultAddress] = useState<string>("");
@@ -24,11 +39,14 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
 
   useEffect(() => {
     if (isOpen) {
-      api.stake.getDepositInfo().then((info) => {
-        setVaultAddress(info.vaultAddress);
-        setMintAddress(info.mintAddress);
-      }).catch(console.error);
-      
+      api.stake
+        .getDepositInfo()
+        .then((info) => {
+          setVaultAddress(info.vaultAddress);
+          setMintAddress(info.mintAddress);
+        })
+        .catch(console.error);
+
       const deficit = Math.max(0, requiredFee - currentStake);
       setAmount(deficit > 0 ? deficit.toFixed(2) : "1");
       setStep("input");
@@ -64,7 +82,7 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
       }
 
       const wallet = window.solana;
-      
+
       if (!wallet.publicKey) {
         await wallet.connect();
         if (!wallet.publicKey) {
@@ -72,20 +90,22 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
         }
       }
 
-      const { Connection, PublicKey, Transaction } = await import("@solana/web3.js");
-      const { 
-        getAssociatedTokenAddress, 
-        createTransferInstruction, 
+      const { Connection, PublicKey, Transaction } = await import(
+        "@solana/web3.js"
+      );
+      const {
+        getAssociatedTokenAddress,
+        createTransferInstruction,
         createAssociatedTokenAccountInstruction,
         getAccount,
         getMint,
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       } = await import("@solana/spl-token");
 
       const connection = new Connection(
         "https://api.mainnet-beta.solana.com",
-        "confirmed"
+        "confirmed",
       );
 
       const fromPubkey = new PublicKey(wallet.publicKey.toString());
@@ -98,10 +118,12 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
       const fromATA = await getAssociatedTokenAddress(mintPubkey, fromPubkey);
       const toATA = await getAssociatedTokenAddress(mintPubkey, toPubkey, true);
 
-      const amountLamports = BigInt(Math.floor(depositAmount * Math.pow(10, decimals)));
+      const amountLamports = BigInt(
+        Math.floor(depositAmount * Math.pow(10, decimals)),
+      );
 
       const transaction = new Transaction();
-      
+
       let toATAExists = false;
       try {
         await getAccount(connection, toATA);
@@ -118,11 +140,11 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
             toPubkey,
             mintPubkey,
             TOKEN_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID
-          )
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+          ),
         );
       }
-      
+
       transaction.add(
         createTransferInstruction(
           fromATA,
@@ -130,8 +152,8 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
           fromPubkey,
           amountLamports,
           [],
-          TOKEN_PROGRAM_ID
-        )
+          TOKEN_PROGRAM_ID,
+        ),
       );
 
       const { blockhash } = await connection.getLatestBlockhash();
@@ -139,15 +161,17 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
       transaction.feePayer = fromPubkey;
 
       const signedTx = await wallet.signTransaction(transaction);
-      const signature = await connection.sendRawTransaction(signedTx.serialize());
-      
+      const signature = await connection.sendRawTransaction(
+        signedTx.serialize(),
+      );
+
       await connection.confirmTransaction(signature, "confirmed");
-      
+
       setTxSignature(signature);
       setStep("confirming");
 
       const result = await api.stake.confirmDeposit(signature, depositAmount);
-      
+
       if (result.success) {
         setNewBalance(result.stakeAfter);
         onStakeUpdated(result.stakeAfter);
@@ -157,7 +181,8 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
       }
     } catch (err: unknown) {
       console.error("Deposit error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Transaction failed";
+      const errorMessage =
+        err instanceof Error ? err.message : "Transaction failed";
       setError(errorMessage);
       setStep("error");
     }
@@ -175,7 +200,7 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
     try {
       const depositAmount = parseFloat(amount) || 0;
       const result = await api.stake.confirmDeposit(txSignature, depositAmount);
-      
+
       if (result.success) {
         setNewBalance(result.stakeAfter);
         onStakeUpdated(result.stakeAfter);
@@ -185,7 +210,8 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
       }
     } catch (err: unknown) {
       console.error("Confirm error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Confirmation failed";
+      const errorMessage =
+        err instanceof Error ? err.message : "Confirmation failed";
       setError(errorMessage);
       setStep("error");
     }
@@ -214,22 +240,30 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
               <div className="bg-gray-800 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Current Stake</span>
-                  <span className="font-medium">{currentStake.toFixed(4)} HIVE</span>
+                  <span className="font-medium">
+                    {currentStake.toFixed(4)} HIVE
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Training Fee</span>
-                  <span className="font-medium">{requiredFee.toFixed(4)} HIVE</span>
+                  <span className="font-medium">
+                    {requiredFee.toFixed(4)} HIVE
+                  </span>
                 </div>
                 {deficit > 0 && (
                   <div className="flex justify-between text-sm pt-2 border-t border-gray-700">
                     <span className="text-yellow-400">Minimum Needed</span>
-                    <span className="font-medium text-yellow-400">{deficit.toFixed(4)} HIVE</span>
+                    <span className="font-medium text-yellow-400">
+                      {deficit.toFixed(4)} HIVE
+                    </span>
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Amount to Deposit</label>
+                <label className="block text-sm text-gray-400 mb-2">
+                  Amount to Deposit
+                </label>
                 <div className="relative">
                   <input
                     type="number"
@@ -240,7 +274,9 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
                     className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-lg focus:outline-none focus:border-purple-500"
                     placeholder="0.00"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">HIVE</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+                    HIVE
+                  </span>
                 </div>
               </div>
 
@@ -248,11 +284,15 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
                 <div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Vault Address</span>
-                    <button 
+                    <button
                       onClick={copyVaultAddress}
                       className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
                     >
-                      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      {copied ? (
+                        <Check className="w-3 h-3" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
                       {copied ? "Copied" : "Copy"}
                     </button>
                   </div>
@@ -272,7 +312,9 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
               </button>
 
               <div className="text-center">
-                <p className="text-xs text-gray-500 mb-2">Already sent tokens manually?</p>
+                <p className="text-xs text-gray-500 mb-2">
+                  Already sent tokens manually?
+                </p>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -298,7 +340,9 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
               <Loader2 className="w-12 h-12 text-purple-400 animate-spin mx-auto" />
               <div>
                 <h3 className="text-lg font-medium">Sending Transaction</h3>
-                <p className="text-sm text-gray-400 mt-1">Please approve the transaction in your wallet...</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Please approve the transaction in your wallet...
+                </p>
               </div>
             </div>
           )}
@@ -308,7 +352,9 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
               <Loader2 className="w-12 h-12 text-purple-400 animate-spin mx-auto" />
               <div>
                 <h3 className="text-lg font-medium">Confirming Deposit</h3>
-                <p className="text-sm text-gray-400 mt-1">Verifying transaction on chain...</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Verifying transaction on chain...
+                </p>
               </div>
             </div>
           )}
@@ -319,9 +365,14 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
                 <Check className="w-8 h-8 text-green-400" />
               </div>
               <div>
-                <h3 className="text-lg font-medium text-green-400">Deposit Successful!</h3>
+                <h3 className="text-lg font-medium text-green-400">
+                  Deposit Successful!
+                </h3>
                 <p className="text-sm text-gray-400 mt-1">
-                  Your new stake balance is <span className="font-semibold text-white">{newBalance.toFixed(4)} HIVE</span>
+                  Your new stake balance is{" "}
+                  <span className="font-semibold text-white">
+                    {newBalance.toFixed(4)} HIVE
+                  </span>
                 </p>
               </div>
               {txSignature && (
@@ -349,7 +400,9 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
                 <AlertTriangle className="w-8 h-8 text-red-400" />
               </div>
               <div>
-                <h3 className="text-lg font-medium text-red-400">Transaction Failed</h3>
+                <h3 className="text-lg font-medium text-red-400">
+                  Transaction Failed
+                </h3>
                 <p className="text-sm text-gray-400 mt-1">{error}</p>
               </div>
               <button

@@ -1,0 +1,252 @@
+A form field element should have an id or name attribute
+Content Security Policy blocks inline execution of scripts and stylesheets
+The Content Security Policy (CSP) prevents cross-site scripting attacks by blocking inline execution of scripts and style sheets.
+
+To solve this, move all inline scripts (e.g. onclick=[JS code]) and styles into external files.
+
+⚠️ Allowing inline execution comes at the risk of script injection via injection of HTML script elements. If you absolutely must, you can allow inline script and styles by:
+
+adding unsafe-inline as a source to the CSP header
+adding the hash or nonce of the inline script to your CSP header.
+10 directives
+Learn more: Content Security Policy - Inline Code
+Content Security Policy of your site blocks some resources
+Some resources are blocked because their origin is not listed in your site's Content Security Policy (CSP). Your site's CSP is allowlist-based, so resources must be listed in the allowlist in order to be accessed.
+
+A site's Content Security Policy is set either via an HTTP header (recommended), or via a meta HTML tag.
+
+To fix this issue do one of the following:
+
+(Recommended) If you're using an allowlist for 'script-src', consider switching from an allowlist CSP to a strict CSP, because strict CSPs are more robust against XSS. See how to set a strict CSP.
+Or carefully check that all of the blocked resources are trustworthy; if they are, include their sources in the CSP of your site. ⚠️Never add a source you don't trust to your site's CSP. If you don't trust the source, consider hosting resources on your own site instead.
+206 directives
+Resource	Status	Directive	Source location
+https://sp.replit.com/sdk.js/v1/dMePKGC4BqfBivpe0Hvl8IoPpzSHgjdX/sdk.min.js	report-only	script-src-elem	Repl-GPT2zip:147
+https://edge.cofra.me/cf.js?config=%257B%2522projectId%2522%253A%252268c9ad4d4cddb58cf3a1f93d%2522%252C%2522startTime%2522%253A1771801193329%252C%2522timeoutMs%2522%253A1000%252C%2522currentUrl%2522%253A%2522https%253A%252F%252Freplit.com%252Ft%252Fhivemindai%252Frepls%252FRepl-GPT2zip%2522%252C%2522trackingOnly%2522%253Atrue%257D	report-only	script-src-elem	Repl-GPT2zip:203
+https://cdn.replit.com/_next/static/chunks/66744d88f11b065c.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/68543685798c10e9.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/68b464d8a503b05b.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/c7f8139be2df7a32.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/6cdc598673875d5b.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/aa713f1a16a28777.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/a2338b99756287ee.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/8c4cfc563cea8d71.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/82b15921c2931c2f.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/164d47a658f9faec.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/6c08ba89c06c0b31.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/1be63e9f11644103.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/81256e0d8ad91bf6.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/03640c73d89c8a4c.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/9952c33c098b35a6.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/bd91ed60871fac24.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/1e2036a51a222b63.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/56e67824b1603316.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/93ea4c6015c44fba.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/386e9897dba529e6.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/c807a1870927ed8e.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0a4f7dc868ae1009.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/aa521c35f9a9b12b.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/fbb3578e6f66274f.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0f67b8cd112b3f72.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/546a4ae4b35285f0.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0ee3bef7680b4ec3.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/9954129c7dd6dc22.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/2ca8263aca18e269.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/21f00ff314e1dd2b.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/e79b5c0796108286.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/turbopack-5f974e2037d3ecfa.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/7a8a89fd16a21548.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/f09a961ea67ea0e4.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/431728ab6679980d.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/7f77e71fb55e0991.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/75d0bfe7c49d50e4.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/a0f5342c2c193e5c.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/fcf7e20829a78ef4.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/37a8ffcd5e8f2e50.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/40b96d587e8190d2.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/a0175a769fe25ae6.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/20a36857bea9e0e5.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/496d3173e26dd75e.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/efbcbff99354fd7c.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/cb4205a17456c88a.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/9d8b9998f7b17b56.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/3d1a153e62162f3d.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/50378857103fb17a.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/7407a060d442656c.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/65b4f67dcfa4b0d8.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/203566b5e3dab448.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/42c91aaae4f97779.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/9f6f25d94743de41.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/4bd627717ccb0d14.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/13667019258db016.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/8c50d5d3b83ba67f.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/c5e06f4489598c12.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/66aa96ea6df22de3.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/a91b595e8c027603.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0d0ce38ef7354dba.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/6fdba006a851d72b.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/1a05743977d682d1.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/d1094473b485d6a6.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/f64c35d4df9c5762.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0315bb379006990b.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0ccfa8349d322eda.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/68004020390cf37c.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/6aab24f89a3294a5.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0faa72c7954dceba.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/c3e45f637c667f11.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/af46a326cd6a8682.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/54c2ccb6a70f4def.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/3ad17a7c5ad32f03.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/d6c0cd9c71b5f6e3.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/18e2f4f9c011f558.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/75761d11c0af1c32.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/41a7941be1f5bc71.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/4f675d61d0c75e68.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/f8df956e39fa1a93.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/35676c8c6c1b163b.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0d3941603d085742.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/e20de17c283013a4.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/fe4021aa08c1288c.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/56b03a453fd47123.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0ed703087aab8a13.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/c2ebdb4842e9f0f2.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/661179b85c22cdbd.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/19e937d03e34cb48.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/1a89c373be4ad248.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/ded77a9b1a9886c0.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/b58bd61fe15398db.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/b9980d2bea346dd6.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/0d3b8b84ad3ce251.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/adfd7bdb1c04aa14.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/cf72c5aebe2ebcf1.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/865fe37d418cbda1.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/d353a440d754e7e6.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/15d5f3d8a2ac7a7e.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/fb661ae01dc24e47.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/6252386ac767333c.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/c31e1cebd574b3eb.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/580e913d5f1cec63.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/a72f4c403806dc24.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/5b880b9da365f685.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/1c3bd1c522ead40b.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/7aa3b1e51f8b40b6.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/7aee232ad1aa7af0.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/5f6fafade12a9bd7.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/28e37ef8b4aba3b0.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/c3c8f898eddcd832.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/chunks/turbopack-1a3d5eaf87552fe8.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/4YK13yYlYxT43wr2YJhMt/_ssgManifest.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.replit.com/_next/static/4YK13yYlYxT43wr2YJhMt/_buildManifest.js	report-only	script-src-elem	Repl-GPT2zip:0
+https://cdn.segment.com/v1/projects/dMePKGC4BqfBivpe0Hvl8IoPpzSHgjdX/settings	report-only	connect-src	sdk.min.js:1
+https://cdn.segment.com/analytics-next/bundles/ajs-destination.bundle.8e6b895db75187c55313.js	report-only	script-src-elem	make namespace object:2
+https://cdn.segment.com/analytics-next/bundles/schemaFilter.bundle.1b218d13fed021531d4e.js	report-only	script-src-elem	make namespace object:2
+https://cdn.segment.com/next-integrations/integrations/google-analytics/2.18.6/google-analytics.dynamic.js.gz	report-only	script-src-elem	load-script.ts:58
+https://cdn.segment.com/next-integrations/integrations/google-adwords-new/1.3.0/google-adwords-new.dynamic.js.gz	report-only	script-src-elem	load-script.ts:58
+https://cdn.segment.com/next-integrations/integrations/vendor/commons.59560acdd69ed701c941.js.gz	report-only	script-src-elem	load-script.ts:58
+https://www.google-analytics.com/analytics.js	report-only	script-src-elem	index.js:58
+https://www.googletagmanager.com/gtag/js?id=AW-11411994397	report-only	script-src-elem	index.js:58
+https://ingest.app.coframe.com/ingest/v2/batched_events/68c9ad4d4cddb58cf3a1f93d/	report-only	connect-src	cf.js?config=%257B%2…22%253Atrue%257D:10
+https://ingest.app.coframe.com/ingest/v2/batched_monitoring/68c9ad4d4cddb58cf3a1f93d/	report-only	connect-src	cf.js?config=%257B%2…22%253Atrue%257D:10
+https://ingest.app.coframe.com/ingest/v2/session_result/	report-only	connect-src	cf.js?config=%257B%2…22%253Atrue%257D:10
+https://www.google-analytics.com/plugins/ua/linkid.js	report-only	script-src-elem	analytics.js:34
+https://www.google-analytics.com/gtm/js?id=OPT-TG46GJV&cid=1177051413.1770682821	report-only	script-src-elem	analytics.js:34
+https://googleads.g.doubleclick.net/pagead/viewthroughconversion/11411994397/?random=1771801193558&cv=11&fst=1771801193558&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be62i1v9171242957za200zd9171242957xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~104527907~104528501~104684208~104684211~115938466~115938468~117384405~117416195~117455676~117455678&u_w=1920&u_h=1080&url=https%3A%2F%2Freplit.com%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&ref=https%3A%2F%2Freplit.com%2Ft%2Fhivemindai%2Frepls&frm=0&tiba=Loading...%20-%20Replit&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=207407734.1770682821&data=event%3Dgtag.config&rfmt=3&fmt=4	report-only	script-src-elem	js?id=AW-11411994397:150
+https://www.google.com/ccm/collect?frm=0&en=page_view&dr=replit.com&dl=https%3A%2F%2Freplit.com%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&scrsrc=www.googletagmanager.com&rnd=79435460.1771801194&dt=Loading...%20-%20Replit&auid=207407734.1770682821&gclaw=CjwKCAiAqKbMBhBmEiwAZ3UboI-7c6sZoNKn2S579Bx_nTCfoPHHWxi_20Wv3AJ-KCJmFHkPzGapcRoCIJ8QAvD_BwE&navt=r&npa=0&gtm=45be62i1v9171242957za200zd9171242957xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=103116026~103200004~104527907~104528501~104684208~104684211~115938466~115938468~117384405~117416195~117455676~117455678&apve=1&apvf=f&apvc=1&tids=AW-11411994397&tid=AW-11411994397&tft=1771801193563&tfd=1137	report-only	connect-src	js?id=AW-11411994397:156
+https://websdk.appsflyer.com/?st=pba&	report-only	script-src-elem	VM13064:6
+https://replit.com/public/stallwart.build.js	report-only	worker-src	0a4f7dc868ae1009.js:2
+https://wa.appsflyer.com/events?site-id=e5524ac6-7dd1-4b1a-b43f-fd2a323600b5	report-only	connect-src	?st=pba&:4
+https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyARAzVTWc_KOBojIholLo2wzwNOQ6VKcB8	report-only	connect-src	56e67824b1603316.js:16
+https://js.hcaptcha.com/1/api.js?render=explicit&host=repl.it	report-only	script-src-elem	fe4021aa08c1288c.js:22
+https://cdn.replit.com/_next/static/4YK13yYlYxT43wr2YJhMt/_clientMiddlewareManifest.json	report-only	connect-src	68543685798c10e9.js:2
+https://o1151714.ingest.sentry.io/api/6318792/envelope/?sentry_key=8aa91189a4274b5a8c9b7b01d46ea360&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.120.4	report-only	connect-src	0a4f7dc868ae1009.js:16
+https://sp.replit.com/v1/p	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://www.google-analytics.com/j/collect?v=1&_v=j102&aip=1&a=1126676825&t=pageview&_s=1&dl=https%3A%2F%2Freplit.com%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&dp=%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&ul=en-us&dt=replEnvironmentDesktop&sr=1920x1080&vp=1854x961&_u=SCCAgEAjQAAAgCgCIAB~&jid=149611377&gjid=1912906644&cid=1177051413.1770682821&tid=UA-25629695-1&_gid=45884981.1771788993&_slc=1&linkid=main-content&z=283380226	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://stats.g.doubleclick.net/j/collect?t=dc&aip=1&_r=3&v=1&_v=j102&tid=UA-25629695-1&cid=1177051413.1770682821&jid=149611377&gjid=1912906644&_gid=45884981.1771788993&_u=SCCAgEAjQAAAgGgCIAD~&z=289041232	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://www.googletagmanager.com/gtag/js?id=G-MPJY3F1YEL&cx=c&_slc=1	report-only	script-src-elem	analytics.js:34
+https://cdn.replit.com/_next/static/chunks/c4a520ff5d04dae1.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/9ca6d05f874d563d.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/3f63a38d025c04fd.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/378b93e7b23a992d.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/edee79451252d216.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/f111e43e60363d1c.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/be5f4523988a6f86.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/5ad38d6a865bdc6c.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/34d8ae495302530b.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/01d1d0a8df20b93d.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/a155e63a9ea05eb0.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/9b3d3d4b04569500.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/1a518532a5eeb50d.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/49caee3513c07abd.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://adora-cdn.com/adora-start.js	report-only	script-src-elem	21f00ff314e1dd2b.js:5
+https://js.stripe.com/acacia/stripe.js	report-only	script-src-elem	0f67b8cd112b3f72.js:2
+https://identitytoolkit.googleapis.com/v2/recaptchaConfig?key=AIzaSyARAzVTWc_KOBojIholLo2wzwNOQ6VKcB8&clientType=CLIENT_TYPE_WEB&version=RECAPTCHA_ENTERPRISE	report-only	connect-src	0a4f7dc868ae1009.js:14
+wss://replit.com/graphql_subscriptions	report-only	connect-src	bd91ed60871fac24.js:2
+https://app.launchdarkly.com/sdk/evalx/62b35a865152ab14c5942820/contexts/eyJrZXkiOiI0NTcyMzQxOSIsImtpbmQiOiJ1c2VyIiwiYW5vbnltb3VzIjpmYWxzZX0	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://prodregistryv2.org/v1/rgstr?k=client-Bp7m7pNB6H0fnSGjVtxN5BeWQw4BSAat4OFsXa3VcTF&st=javascript-client&sv=3.26.0&t=1771801195214&sid=2158c7ae-aac5-4b4f-bd0e-1630774b6dfb&ec=1&gz=1	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://replit.com/graphql	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://analytics.google.com/g/collect?v=2&tid=G-MPJY3F1YEL&gtm=45je62i1v9135634466za20g&_p=1771801193517&_gaz=1&gcd=13l3l3l3l2l1&npa=0&dma=0&ul=en-us&sr=1920x1080&cid=1177051413.1770682821&ecid=868140085&ir=1&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CGoogle%2520Chrome%3B145.0.7632.75%7CChromium%3B145.0.7632.75&uamb=0&uam=&uap=Linux&uapv=&uaw=0&are=1&frm=0&pscdl=noapi&ec_mode=a&_eu=EBAIAGQ&_s=1&tag_exp=103116026~103200004~104527907~104528500~104684208~104684211~115616986~115938466~115938469~116133315~117455676~117455678&dl=https%3A%2F%2Freplit.com%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&dp=%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&dt=replEnvironmentDesktop&sid=1771788992&sct=7&seg=1&_tu=wAQ&en=page_view&_ee=1&tfd=2892	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://www.google.com/recaptcha/enterprise.js?render=6LdqhwwoAAAAAFPdw8jCuvY3PaHQItGj3RzOS4fW	report-only	script-src-elem	56e67824b1603316.js:16
+https://prodregistryv2.org/v1/rgstr?k=client-Bp7m7pNB6H0fnSGjVtxN5BeWQw4BSAat4OFsXa3VcTF&st=javascript-client&sv=3.26.0&t=1771801195369&sid=2158c7ae-aac5-4b4f-bd0e-1630774b6dfb&ec=2&gz=1	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://www.gstatic.com/recaptcha/releases/vUgXt_KV952_-5BB2jjloYzl/recaptcha__en.js	report-only	script-src-elem	enterprise.js?render…3PaHQItGj3RzOS4fW:1
+https://app.launchdarkly.com/sdk/evalx/62b35a865152ab14c5942820/contexts/eyJrZXkiOiI0NTcyMzQxOSIsImtpbmQiOiJ1c2VyIiwibmFtZSI6InJqZmVyZ3Vzb241MjciLCJyb2xlcyI6WyJpbnRlbnRfcGVyc29uYWwiXSwiZW1haWwiOiJyamZlcmd1c29uNTI3QGdtYWlsLmNvbSIsInRpbWVfY3JlYXRlZCI6MTc1MzgzMjQ2MTk4MSwiX21ldGEiOnsicHJpdmF0ZUF0dHJpYnV0ZXMiOlsiZW1haWwiXX19	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://c.adora-cdn.com/organizations/1e56f581-9083-4d33-a9eb-ba4fb5d2996b/routing	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://featureassets.org/v1/initialize?k=client-Bp7m7pNB6H0fnSGjVtxN5BeWQw4BSAat4OFsXa3VcTF&st=javascript-client&sv=3.26.0&t=1771801195574&sid=2158c7ae-aac5-4b4f-bd0e-1630774b6dfb&se=1	report-only	connect-src	0a4f7dc868ae1009.js:14
+wss://production-taskman.replit.com/api/river	report-only	connect-src	75761d11c0af1c32.js:8
+https://replit.com/data/repls/0f74515e-986c-432d-9065-073460dbd419/get_connection_metadata	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3Af84d12c1&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=468d1d18-5156-42a8-83f4-fbeaacd5c53d	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://replit.com/ai/auth	report-only	connect-src	0a4f7dc868ae1009.js:14
+wss://production-chort.replit.com/api/river	report-only	connect-src	6252386ac767333c.js:2
+https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3Af84d12c1&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=1af00f08-565e-4e2d-b5d6-55fe5b42cd0c	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://sp.replit.com/v1/t	report-only	connect-src	0a4f7dc868ae1009.js:14
+wss://production-chort.replit.com/api/river-chat?auth_token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQ1NzIzNDE5LCJ1c2VyVGltZUNyZWF0ZWQiOiIyMDI1LTA3LTI5VDIzOjQxOjAxLjk4MVoiLCJyZXBsSWQiOiIwZjc0NTE1ZS05ODZjLTQzMmQtOTA2NS0wNzM0NjBkYmQ0MTkiLCJtZW1iZXJzaGlwIjoidGVhbXMiLCJpc3N1ZXIiOiJodHRwczovL3JlcGxpdC13ZWItcHJvZC5wLnJlcGxpdC5jb20iLCJyb2xlcyI6WyJpbnRlbnRfcGVyc29uYWwiXSwiY2FuV3JpdGUiOnRydWUsImhhc1JlcGxpdEFpUHJvIjp0cnVlLCJvcmdJZCI6IjR0ZTZjNyIsImZsYWdnaW5nQ29udGV4dCI6IntcImtleVwiOlwidGVhbTo0dGU2YzdcIixcImtpbmRcIjpcIm93bmVyXCIsXCJyb2xlc1wiOltdLFwiaXNfdGVhbVwiOnRydWUsXCJtZW1iZXJzaGlwXCI6XCJ0ZWFtc1wiLFwiaXNFbnRlcnByaXNlXCI6ZmFsc2UsXCJlbWFpbFwiOlwicmpmZXJndXNvbjUyN0BnbWFpbC5jb21cIixcInBsYW5OYW1lXCI6XCJDb3JlXCIsXCJ0ZW51cmVJbkRheXNcIjoyMDcsXCJ0ZW51cmVCdWNrZXRcIjpcIm11bHRpcGxlX21vbnRoc1wiLFwiaXNTdGFmZlwiOmZhbHNlLFwic3RhYmxlSURcIjpcImUwMDhjYjA4LTg2ZTMtNDI1MS1hZDhlLTA3YzE2MGVlODFjN1wifSIsIm1vZGVsZmFybURpc2FibGVkIjpmYWxzZSwib3BlbnJvdXRlckRpc2FibGVkIjpmYWxzZSwib3BlbmFpRGlzYWJsZWQiOmZhbHNlLCJhbnRocm9waWNEaXNhYmxlZCI6ZmFsc2UsImdlbWluaURpc2FibGVkIjpmYWxzZSwiaXNFbnRlcnByaXNlIjpmYWxzZSwiaWF0IjoxNzcxODAxMTk1LCJleHAiOjE3NzE4MDQ3OTV9.hwnY2SzhQyhUnkXgS03fbdc4ehHPkPLaYnWE5x3xvxjNzQ_eyQ83wmuI_8-jWgMXdhGOJcjzpgzn2z-fTjli07s0bGamBfM3gtSRJnS64a2SM9Tbx19mdk9gT7M3epPB2_FmSDAEckrdEJTeL6thkcwc3VpkaLUo2oFrKLWxE9PuAL1FsT7FiV3Evu9lVvLywqWMYBlcMt-_jAtlMkiMtmDvplXAikoBuz5RfifETvc6Ml-8PeEXHrnv3ETYH2cCrHKfXyzaqxiQlzNRmDqPGxrX0fZXRNUBaY_opOUlmNIOk824KkLcn7O7sm5HquPRfo8e-ob5_SZNM1zRjXXTOw	report-only	connect-src	6252386ac767333c.js:2
+https://replit.com/ai/chort/auth	report-only	connect-src	0a4f7dc868ae1009.js:14
+wss://eval.picard.platform.replit.com/wsv2/v2.public.Q2dZSTNKVHV6QVlTQmdqN3NPN01CaUlHY0dsallYSmtNQUE2bHdJS0pEQm1OelExTVRWbExUazRObU10TkRNeVpDMDVNRFkxTFRBM016UTJNR1JpWkRReE9SSURibWw0R2hoeVpYQnNhWFF0Y21Wd2JDMW1hV3hsY3kxd2FXTmhjbVFpREZKbGNHd3RSMUJVTW5wcGNDb05jbXBtWlhKbmRYTnZialV5TjBKVUNobHlaWEJzYVhRdGNtVndiQzFpYkc5amEzTXRjR2xqWVhKa0VoZHlaWEJzYVhRdGNtVndiQzF0WlhSaExYQnBZMkZ5WkJvZWNtVndiR2wwTFcxaGNtZGhjbWx1WlMxaWJHOWphM010Y0dsallYSmtTZ2NJbTk3bUZSQUJVQUJhRDJsdWRHVnVkRjl3WlhKemIyNWhiSElNQ2dZMGRHVTJZemNRQWlBQWVBQ0NBUlZqYjI1dVpXTjBiM0p6TG5KbGNHeHBkQzVqYjIyS0FSZ0tFRVJQWDFORlExVlNTVlJaWDFORFFVNFNCSFJ5ZFdWU0pRZ0JFSUNBZ0lCQUdRQUFBQUFBQUNCQUlRQUFBQUFBQUNCQUtJQ0FnSURvQnpBQ09BQmdBR29VQ0p2ZTVoVVNEWEpxWm1WeVozVnpiMjQxTWplQ0FRSXlBSm9CQ2dvSU1DNHdMak16TXppZ0FRR3lBY3NFQ2c1UFRFeEJUVUZmUVZCSlgwdEZXUks0QkdoMGRIQnpPaTh2YzNSdmNtRm5aUzVuYjI5bmJHVmhjR2x6TG1OdmJTOXlaWEJzYVhRdFlXTmpiM1Z1ZEMxelpXTnlaWFJ6THpRMU56SXpOREU1TDJNMFkyRmhORFF3TFRaaFpXTXROR05qT1MwNU5qTTFMV1U1Tm1VMk9UaGhZVEUxTXo5SGIyOW5iR1ZCWTJObGMzTkpaRDF5WlhCc2FYUXRkMlZpSlRRd2NtVndiR2wwTFhkbFlpNXBZVzB1WjNObGNuWnBZMlZoWTJOdmRXNTBMbU52YlNaRmVIQnBjbVZ6UFRFM056RTRNRFEzT1RVbVUybG5ibUYwZFhKbFBVZE1UMGhKTkdKcmJHOUhaQ1V5Um5WTFRrd3hXbGcxV0NVeVJuWk1jRTVJVm1Odk56SkRhR3BhVEVWTWExVTVUM3AzTTFGRFVrVlhSbkU0TW5KdWMxQmFTMEprYkZKWkpUSkdRWGxxZVdNbE1rSm1lV1pLWTB4bGFWVnJWSHBDUlc5WkpUSkdRMnhwY1RkaGExUWxNa1p3YVVaVFdsZzVVVVJuVmpGUlExUm1jR1pETmxkM1VGWTRTSGNsTWtaV1QwUlBXR0pZWm5KbU9IUm1UR1ZzWlVSSk1rTnZha1oyTVdacmJXVnZXWFJ5YlhOUlkwVmxkVVUwTms5Qlkxa3lOREJ5YXpCU2FtVTNUM2hUVXlVeVFtaEZTbGhLZVNVeVJsaHJVVmwwT1c1NE9YY2xNa0p1TUVRMWQzUk9kbWhWYVhJd2QwRkxSV05qZDBKM1oyNUlkV1I1UWxJbE1rWnJlbXR2TjJ4bWEwTk9XVXBxUWpkWk1qTktXRXhxTUhOak9IaHNaRzVCWlhZME4yeHliVUZLYTJsWU1sQTNZekZqYjNGTmJHRmxTa3BIZVd0emVUTnJNekZyZFdGcU0wSkNKVEpDTVVjeWRFZzVia2xQUkVnbE1rSkthMjQ0Y25kTUpUSkNaSFF5VUdOcFluY2xNMFFsTTBRPXpJOq4bEYnW6iSHIocZJF0dZxaNT-LG6zykjIcFlsKMScTcIlqNCGCjs1gwL1xT-hqBZYRlYRKyiGkn0J4h5gY.Q2dad2NtOWtPak1pQ25KbGNHeHBkQzVqYjIwPQ	report-only	connect-src	19e937d03e34cb48.js:2
+wss://eval.picard.platform.replit.com/wsv2/v2.public.Q2dZSTNKVHV6QVlTQmdqN3NPN01CaUlHY0dsallYSmtNQUE2bHdJS0pEQm1OelExTVRWbExUazRObU10TkRNeVpDMDVNRFkxTFRBM016UTJNR1JpWkRReE9SSURibWw0R2hoeVpYQnNhWFF0Y21Wd2JDMW1hV3hsY3kxd2FXTmhjbVFpREZKbGNHd3RSMUJVTW5wcGNDb05jbXBtWlhKbmRYTnZialV5TjBKVUNobHlaWEJzYVhRdGNtVndiQzFpYkc5amEzTXRjR2xqWVhKa0VoZHlaWEJzYVhRdGNtVndiQzF0WlhSaExYQnBZMkZ5WkJvZWNtVndiR2wwTFcxaGNtZGhjbWx1WlMxaWJHOWphM010Y0dsallYSmtTZ2NJbTk3bUZSQUJVQUJhRDJsdWRHVnVkRjl3WlhKemIyNWhiSElNQ2dZMGRHVTJZemNRQWlBQWVBQ0NBUlZqYjI1dVpXTjBiM0p6TG5KbGNHeHBkQzVqYjIyS0FSZ0tFRVJQWDFORlExVlNTVlJaWDFORFFVNFNCSFJ5ZFdWU0pRZ0JFSUNBZ0lCQUdRQUFBQUFBQUNCQUlRQUFBQUFBQUNCQUtJQ0FnSURvQnpBQ09BQmdBMm9VQ0p2ZTVoVVNEWEpxWm1WeVozVnpiMjQxTWplQ0FRSXlBSm9CQ2dvSU1DNHdMak16TXppZ0FRR3lBY3NFQ2c1UFRFeEJUVUZmUVZCSlgwdEZXUks0QkdoMGRIQnpPaTh2YzNSdmNtRm5aUzVuYjI5bmJHVmhjR2x6TG1OdmJTOXlaWEJzYVhRdFlXTmpiM1Z1ZEMxelpXTnlaWFJ6THpRMU56SXpOREU1TDJNMFkyRmhORFF3TFRaaFpXTXROR05qT1MwNU5qTTFMV1U1Tm1VMk9UaGhZVEUxTXo5SGIyOW5iR1ZCWTJObGMzTkpaRDF5WlhCc2FYUXRkMlZpSlRRd2NtVndiR2wwTFhkbFlpNXBZVzB1WjNObGNuWnBZMlZoWTJOdmRXNTBMbU52YlNaRmVIQnBjbVZ6UFRFM056RTRNRFEzT1RVbVUybG5ibUYwZFhKbFBVZE1UMGhKTkdKcmJHOUhaQ1V5Um5WTFRrd3hXbGcxV0NVeVJuWk1jRTVJVm1Odk56SkRhR3BhVEVWTWExVTVUM3AzTTFGRFVrVlhSbkU0TW5KdWMxQmFTMEprYkZKWkpUSkdRWGxxZVdNbE1rSm1lV1pLWTB4bGFWVnJWSHBDUlc5WkpUSkdRMnhwY1RkaGExUWxNa1p3YVVaVFdsZzVVVVJuVmpGUlExUm1jR1pETmxkM1VGWTRTSGNsTWtaV1QwUlBXR0pZWm5KbU9IUm1UR1ZzWlVSSk1rTnZha1oyTVdacmJXVnZXWFJ5YlhOUlkwVmxkVVUwTms5Qlkxa3lOREJ5YXpCU2FtVTNUM2hUVXlVeVFtaEZTbGhLZVNVeVJsaHJVVmwwT1c1NE9YY2xNa0p1TUVRMWQzUk9kbWhWYVhJd2QwRkxSV05qZDBKM1oyNUlkV1I1UWxJbE1rWnJlbXR2TjJ4bWEwTk9XVXBxUWpkWk1qTktXRXhxTUhOak9IaHNaRzVCWlhZME4yeHliVUZLYTJsWU1sQTNZekZqYjNGTmJHRmxTa3BIZVd0emVUTnJNekZyZFdGcU0wSkNKVEpDTVVjeWRFZzVia2xQUkVnbE1rSkthMjQ0Y25kTUpUSkNaSFF5VUdOcFluY2xNMFFsTTBRPdiJDIHOkcZVyC7UZ2wtPVSVfA-sjGIQOavroSOHyfpnUKVV5PZSgg6E3nUAHTsP5aCVN_VaMgGoa5EG85oZHQ8.Q2dad2NtOWtPak1pQ25KbGNHeHBkQzVqYjIwPQ	report-only	connect-src	c3c8f898eddcd832.js:617
+https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3Af84d12c1&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=ca289388-6bd7-4dcc-96fb-8648a085ed35	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://c.adora-cdn.com/sessions/preload	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3Af84d12c1&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=558d3d55-c337-42b4-aed3-254a97a0d9bd	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://www.google.com/recaptcha/enterprise/clr?k=6LdqhwwoAAAAAFPdw8jCuvY3PaHQItGj3RzOS4fW	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3Af84d12c1&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=f3a6f4cd-aec7-4b05-9672-33e0c8bbc150	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://cdn.replit.com/_next/static/chunks/c5b8ddf38898dd14.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/80542ab20af005a4.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/83ce697e71833202.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/c601a55753a6485c.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/0e87daab68158226.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/15fc45e57ea1e830.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/459b86d4dc190ed8.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/a7a81131f7313958.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://cdn.replit.com/_next/static/chunks/14a0a7d4b60ddaca.js	report-only	script-src-elem	turbopack-5f974e2037d3ecfa.js:5
+https://c.adora-cdn.com/sessions/start	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3Af84d12c1&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=c5f942d1-4188-41bc-b31b-56255ad4d188	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://events.launchdarkly.com/events/bulk/62b35a865152ab14c5942820	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3Af84d12c1&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=a64bc5d1-b460-471c-9184-533b45bf9009	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://analytics.google.com/g/collect?v=2&tid=G-MPJY3F1YEL&gtm=45je62i1v9135634466za20g&_p=1771801193517&gcd=13l3l3l3l2l1&npa=0&dma=0&ul=en-us&sr=1920x1080&cid=1177051413.1770682821&ecid=868140085&ir=1&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CGoogle%2520Chrome%3B145.0.7632.75%7CChromium%3B145.0.7632.75&uamb=0&uam=&uap=Linux&uapv=&uaw=0&are=1&frm=0&pscdl=noapi&_eu=EBAIAGQ&tag_exp=103116026~103200004~104527907~104528500~104684208~104684211~115616986~115938466~115938469~116133315~117455676~117455678&dl=https%3A%2F%2Freplit.com%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&dp=%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&dt=replEnvironmentDesktop&sid=1771788992&sct=7&seg=1&_tu=wAQ&_s=2&tfd=7895	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://js.stripe.com/v3/fingerprinted/js/trusted-types-checker-a86dcafd042e60cf7585cbabd57b0cdb.js	report-only	script-src-elem	stripe.js:1
+https://prodregistryv2.org/v1/rgstr?k=client-Bp7m7pNB6H0fnSGjVtxN5BeWQw4BSAat4OFsXa3VcTF&st=javascript-client&sv=3.26.0&t=1771801205169&sid=2158c7ae-aac5-4b4f-bd0e-1630774b6dfb&ec=4&gz=1	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://analytics.google.com/g/collect?v=2&tid=G-MPJY3F1YEL&gtm=45je62i1v9135634466za20g&_p=1771801193517&gcd=13l3l3l3l2l1&npa=0&dma=0&ul=en-us&sr=1920x1080&cid=1177051413.1770682821&ecid=868140085&ir=1&uaa=x86&uab=64&uafvl=Not%253AA-Brand%3B99.0.0.0%7CGoogle%2520Chrome%3B145.0.7632.75%7CChromium%3B145.0.7632.75&uamb=0&uam=&uap=Linux&uapv=&uaw=0&are=1&frm=0&pscdl=noapi&_eu=EBAIAGQ&_s=3&tag_exp=103116026~103200004~104527907~104528500~104684208~104684211~115616986~115938466~115938469~116133315~117455676~117455678&dl=https%3A%2F%2Freplit.com%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&dp=%2Ft%2Fhivemindai%2Frepls%2FRepl-GPT2zip&dt=replEnvironmentDesktop&sid=1771788992&sct=7&seg=1&_tu=wAQ&en=Packager%20Packages%20Installed&_ee=1&ep.event_category=All&ep.value=0&_et=8577&tfd=20488	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://prodregistryv2.org/v1/rgstr?k=client-Bp7m7pNB6H0fnSGjVtxN5BeWQw4BSAat4OFsXa3VcTF&st=javascript-client&sv=3.26.0&t=1771801215169&sid=2158c7ae-aac5-4b4f-bd0e-1630774b6dfb&ec=1&gz=1	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://sp.replit.com/v1/m	report-only	connect-src	0a4f7dc868ae1009.js:14
+https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3Af84d12c1&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=d163fb2e-bfa5-46a1-811e-db215ddae2d4	report-only	connect-src	0a4f7dc868ae1009.js:14
+Learn more: Content Security Policy - Source Allowlists
+Content Security Policy of your site blocks the use of 'eval' in JavaScript`
+The Content Security Policy (CSP) prevents the evaluation of arbitrary strings as JavaScript to make it more difficult for an attacker to inject unathorized code on your site.
+
+To solve this issue, avoid using eval(), new Function(), setTimeout([string], ...) and setInterval([string], ...) for evaluating strings.
+
+If you absolutely must: you can enable string evaluation by adding unsafe-eval as an allowed source in a script-src directive.
+
+⚠️ Allowing string evaluation comes at the risk of inline script injection.
+
+3 directives
+Learn more: Content Security Policy - Eval
+Deprecated feature used
+The Protected Audience API is deprecated and will be removed in a future release.
+
+1 source
+api.js?render=explicit&host=repl.it:4
+Response was blocked by CORB (Cross-Origin Read Blocking)
+Cross-Origin Read Blocking (CORB) blocked a cross-origin response.
+
+1 request
+
+68c9ad4d4cddb58cf3a1f93d/
