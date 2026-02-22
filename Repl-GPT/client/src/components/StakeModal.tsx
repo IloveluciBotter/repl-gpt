@@ -166,14 +166,13 @@ export function StakeModal({
         { skipPreflight: false },
       );
 
-      await connection.confirmTransaction(
-        {
-          signature,
-          blockhash: latest.blockhash,
-          lastValidBlockHeight: latest.lastValidBlockHeight,
-        },
-        "confirmed",
-      );
+      for (let i = 0; i < 40; i++) {
+        const st = await connection.getSignatureStatuses([signature]);
+        const s = st.value[0];
+        if (s?.err) throw new Error("Transaction failed on-chain");
+        if (s?.confirmationStatus === "confirmed" || s?.confirmationStatus === "finalized") break;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
 
       setTxSignature(signature);
       setStep("confirming");
