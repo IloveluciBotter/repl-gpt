@@ -1,3 +1,7 @@
+import { Buffer } from "buffer";
+globalThis.Buffer = Buffer;
+(window as any).Buffer = Buffer;
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
