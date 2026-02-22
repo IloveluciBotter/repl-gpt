@@ -170,7 +170,7 @@ export async function generateChatResponse(
   
   try {
     ragSources = await searchCorpus(userMessage, 5, trackId);
-    corpusItemIds = [...new Set(ragSources.map(s => s.corpusItemId))];
+    corpusItemIds = Array.from(new Set(ragSources.map(s => s.corpusItemId)));
     isGrounded = ragSources.length > 0;
   } catch (error: any) {
     console.warn("[RAG] Search failed, falling back to ungrounded response:", error.message);

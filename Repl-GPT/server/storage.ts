@@ -354,13 +354,12 @@ export class DbStorage implements IStorage {
 
   // Phrase operations
   async getPhrasesByMentions(minMentions: number, cycleId?: number): Promise<Phrase[]> {
-    let query = db.select().from(phrases);
+    const query = db.select().from(phrases).$dynamic();
     if (cycleId) {
-      query = query.where(and(gte(phrases.globalMentions, minMentions), eq(phrases.lastCycleCounted, cycleId)));
+      return await query.where(and(gte(phrases.globalMentions, minMentions), eq(phrases.lastCycleCounted, cycleId)));
     } else {
-      query = query.where(gte(phrases.globalMentions, minMentions));
+      return await query.where(gte(phrases.globalMentions, minMentions));
     }
-    return await query;
   }
 
   async incrementPhraseMention(normalized: string, redacted: string, trackId?: string): Promise<Phrase> {
@@ -527,11 +526,11 @@ export class DbStorage implements IStorage {
   }
 
   async getActiveLocks(userId?: string): Promise<Lock[]> {
-    let query = db.select().from(locks).where(sql`${locks.unlockedAt} IS NULL`);
+    const query = db.select().from(locks).$dynamic();
     if (userId) {
-      query = query.where(and(sql`${locks.unlockedAt} IS NULL`, eq(locks.userId, userId)));
+      return await query.where(and(sql`${locks.unlockedAt} IS NULL`, eq(locks.userId, userId)));
     }
-    return await query;
+    return await query.where(sql`${locks.unlockedAt} IS NULL`);
   }
 
   async unlockLocks(cycleNumber: number): Promise<void> {
@@ -725,7 +724,8 @@ export class DbStorage implements IStorage {
     const byTrack: Record<string, number> = {};
     
     for (const item of allItems) {
-      byTrack[item.trackId] = (byTrack[item.trackId] || 0) + 1;
+      const key = item.trackId ?? "unassigned";
+      byTrack[key] = (byTrack[key] || 0) + 1;
     }
     
     return {
