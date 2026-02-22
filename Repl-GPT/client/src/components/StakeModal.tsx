@@ -99,7 +99,7 @@ export function StakeModal({
         createAssociatedTokenAccountInstruction,
         getAccount,
         getMint,
-        TOKEN_PROGRAM_ID,
+        TOKEN_2022_PROGRAM_ID,
         ASSOCIATED_TOKEN_PROGRAM_ID,
       } = await import("@solana/spl-token");
 
@@ -112,11 +112,11 @@ export function StakeModal({
       const toPubkey = new PublicKey(vaultAddress);
       const mintPubkey = new PublicKey(mintAddress);
 
-      const mintInfo = await getMint(connection, mintPubkey);
+      const mintInfo = await getMint(connection, mintPubkey, "confirmed", TOKEN_2022_PROGRAM_ID);
       const decimals = mintInfo.decimals;
 
-      const fromATA = await getAssociatedTokenAddress(mintPubkey, fromPubkey);
-      const toATA = await getAssociatedTokenAddress(mintPubkey, toPubkey, true);
+      const fromATA = await getAssociatedTokenAddress(mintPubkey, fromPubkey, false, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+      const toATA = await getAssociatedTokenAddress(mintPubkey, toPubkey, true, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
 
       const amountLamports = BigInt(
         Math.floor(depositAmount * Math.pow(10, decimals)),
@@ -126,7 +126,7 @@ export function StakeModal({
 
       let toATAExists = false;
       try {
-        await getAccount(connection, toATA);
+        await getAccount(connection, toATA, "confirmed", TOKEN_2022_PROGRAM_ID);
         toATAExists = true;
       } catch {
         toATAExists = false;
@@ -139,7 +139,7 @@ export function StakeModal({
             toATA,
             toPubkey,
             mintPubkey,
-            TOKEN_PROGRAM_ID,
+            TOKEN_2022_PROGRAM_ID,
             ASSOCIATED_TOKEN_PROGRAM_ID,
           ),
         );
@@ -152,7 +152,7 @@ export function StakeModal({
           fromPubkey,
           amountLamports,
           [],
-          TOKEN_PROGRAM_ID,
+          TOKEN_2022_PROGRAM_ID,
         ),
       );
 
