@@ -3,7 +3,15 @@ import { logger } from "../middleware/logger";
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "https://ollama.replit.dev";
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || "";
 const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || "nomic-embed-text";
-const EMBEDDING_DIMENSION = 1024;
+const EMBEDDING_DIMENSION = (() => {
+  const raw = process.env.OLLAMA_EMBED_DIM;
+  if (raw) {
+    const parsed = Number(raw);
+    if (Number.isInteger(parsed) && parsed > 0) return parsed;
+    logger.warn({ raw, message: "Invalid OLLAMA_EMBED_DIM, falling back to 1024" });
+  }
+  return 1024;
+})();
 
 export interface EmbeddingResult {
   embedding: number[];
@@ -51,6 +59,31 @@ export async function generateEmbedding(text: string): Promise<EmbeddingResult> 
   } catch (error: any) {
     logger.error({ error: error.message, model: OLLAMA_EMBED_MODEL, message: "Embedding generation failed" });
     throw error;
+  }
+}
+
+export class EmbeddingDimensionMismatchError extends Error {
+  constructor(
+    public readonly model: string,
+    public readonly expectedDim: number,
+    public readonly actualDim: number,
+    public readonly itemId?: string,
+  ) {
+    super(
+      `Embedding dimension mismatch: model=${model} expected=${expectedDim} actual=${actualDim}` +
+      (itemId ? ` item=${itemId}` : "")
+    );
+    this.name = "EmbeddingDimensionMismatchError";
+  }
+}
+
+export function validateEmbeddingDimension(
+  embedding: number[],
+  model: string,
+  itemId?: string,
+): void {
+  if (embedding.length !== EMBEDDING_DIMENSION) {
+    throw new EmbeddingDimensionMismatchError(model, EMBEDDING_DIMENSION, embedding.length, itemId);
   }
 }
 

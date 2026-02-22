@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { corpusChunks, trainingCorpusItems } from "@shared/schema";
 import { eq, sql, and, desc } from "drizzle-orm";
-import { generateEmbedding, chunkText, getEmbeddingConfig } from "./embedding";
+import { generateEmbedding, chunkText, getEmbeddingConfig, validateEmbeddingDimension } from "./embedding";
 import { logger } from "../middleware/logger";
 
 export interface ChunkResult {
@@ -46,6 +46,7 @@ export async function embedCorpusItem(corpusItemId: string): Promise<number> {
   for (let i = 0; i < chunks.length; i++) {
     try {
       const { embedding, model } = await generateEmbedding(chunks[i]);
+      validateEmbeddingDimension(embedding, model, corpusItemId);
       const embeddingJson = JSON.stringify(embedding);
 
       await db.insert(corpusChunks).values({

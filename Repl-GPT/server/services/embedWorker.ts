@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { trainingCorpusItems, corpusChunks } from "@shared/schema";
 import { eq, sql, and, lte, or, isNull } from "drizzle-orm";
-import { generateEmbedding, chunkText } from "./embedding";
+import { generateEmbedding, chunkText, validateEmbeddingDimension } from "./embedding";
 import { logger } from "../middleware/logger";
 import crypto from "crypto";
 
@@ -200,6 +200,7 @@ async function embedItemWithRetry(corpusItemId: string): Promise<void> {
       
       for (let i = 0; i < chunks.length; i++) {
         const { embedding, model } = await generateEmbedding(chunks[i]);
+        validateEmbeddingDimension(embedding, model, corpusItemId);
         const embeddingJson = JSON.stringify(embedding);
 
         await tx.insert(corpusChunks).values({
