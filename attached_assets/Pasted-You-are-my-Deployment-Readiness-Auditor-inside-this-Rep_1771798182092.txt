@@ -1,0 +1,51 @@
+You are my Deployment Readiness Auditor inside this Replit project.
+
+Goal: produce a complete, actionable “Ready to Deploy” report for THIS repo, based on real checks you run in the workspace. Do not guess.
+
+Rules:
+- Work in small prompts. Do one phase at a time, but you should COMPLETE all phases in one run unless blocked by missing info.
+- If you need secrets or config values, list them as “BLOCKERS” and show exactly where they are referenced.
+- Prefer evidence: command output, file paths, line numbers.
+
+PHASE A — Inventory
+1) Print project structure highlights (top folders + server/client entrypoints).
+2) Identify framework/runtime (Next.js, Express, Vite, etc).
+3) Identify deploy target in Replit (web server port, start command, build command).
+
+PHASE B — Build/Run Verification (must actually run)
+1) Run install using the repo’s package manager (npm/pnpm/yarn) and note lockfile.
+2) Run build (npm run build). Capture failures.
+3) Run start in production mode (npm run start) and confirm:
+   - which port it binds to
+   - /api/health (or equivalent) returns OK
+   - homepage loads without server errors
+
+PHASE C — Config + Secrets Audit
+1) Parse .env.example / env usage in code:
+   - list all required env vars
+   - mark each as SET / MISSING in Replit Secrets
+2) Detect auth/token config (JWT_SECRET, session, cookies, CORS).
+3) Detect any domain-dependent logic (PUBLIC_APP_DOMAIN, callback URLs).
+
+PHASE D — Database / Migrations
+1) Detect database type and ORM (Prisma/Drizzle/Knex/raw).
+2) Check migrations:
+   - are they committed?
+   - is there a migrate script?
+3) Verify DB connection works from the app (simple query or health route).
+
+PHASE E — Token-gate / Solana checks
+1) Identify Solana RPC usage, HIVE_MINT usage, wallet signature verification.
+2) Run any lightweight validation you can without spending funds.
+3) Mark “safe to deploy” vs “needs mainnet test”.
+
+PHASE F — Output Report
+Return a single markdown report with:
+- ✅ Ready
+- ⚠️ Needs Work (with exact fix steps)
+- 🧱 Blockers (missing secrets/config)
+- “Minimal Deploy Checklist” (the exact last steps to ship)
+- “Replit Deploy Settings” (build cmd, run cmd, port)
+Include file paths + line numbers for every issue you flag.
+
+Begin now with PHASE A and show me the commands you will run.
