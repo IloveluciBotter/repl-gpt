@@ -109,6 +109,22 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/rpc/solana", publicReadLimiter, async (req: Request, res: Response) => {
+    try {
+      const rpcUrl = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+      const response = await fetch(rpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body),
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      captureError(error, { requestId: req.requestId });
+      res.status(502).json({ error: "RPC proxy error", message: error.message });
+    }
+  });
+
   app.get("/api/health/ready", async (req: Request, res: Response) => {
     const ready = await isReady();
     if (ready) {

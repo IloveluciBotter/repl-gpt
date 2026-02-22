@@ -104,7 +104,7 @@ export function StakeModal({
       } = await import("@solana/spl-token");
 
       const connection = new Connection(
-        "https://api.mainnet-beta.solana.com",
+        `${window.location.origin}/api/rpc/solana`,
         "confirmed",
       );
 

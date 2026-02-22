@@ -1,0 +1,73 @@
+Deposit error: Error: failed to get info about account F3zvEFZVhDXNo1kZDPg24Z3RioDzCdEJVdnZ5FCcpump: Error: 403 :  {"jsonrpc":"2.0","error":{"code": 403, "message":"Access forbidden"}, "id": "168a79e0-b80d-4e68-931e-56cd2c676f01" } 
+
+    at Connection.getAccountInfo (@solana_web3__js.js?v=2743551d:16174:13)
+    at async getMint (@solana_spl-token.js?v=2743551d:22352:16)
+    at async handleDeposit (StakeModal.tsx:115:24)
+(anonymous) @ injected.js:37
+handleDeposit @ StakeModal.tsx:183
+await in handleDeposit
+callCallback2 @ chunk-MNF4PNE3.js?v=2743551d:3680
+invokeGuardedCallbackDev @ chunk-MNF4PNE3.js?v=2743551d:3705
+invokeGuardedCallback @ chunk-MNF4PNE3.js?v=2743551d:3739
+invokeGuardedCallbackAndCatchFirstError @ chunk-MNF4PNE3.js?v=2743551d:3742
+executeDispatch @ chunk-MNF4PNE3.js?v=2743551d:7046
+processDispatchQueueItemsInOrder @ chunk-MNF4PNE3.js?v=2743551d:7066
+processDispatchQueue @ chunk-MNF4PNE3.js?v=2743551d:7075
+dispatchEventsForPlugins @ chunk-MNF4PNE3.js?v=2743551d:7083
+(anonymous) @ chunk-MNF4PNE3.js?v=2743551d:7206
+batchedUpdates$1 @ chunk-MNF4PNE3.js?v=2743551d:18966
+batchedUpdates @ chunk-MNF4PNE3.js?v=2743551d:3585
+dispatchEventForPluginEventSystem @ chunk-MNF4PNE3.js?v=2743551d:7205
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-MNF4PNE3.js?v=2743551d:5484
+dispatchEvent @ chunk-MNF4PNE3.js?v=2743551d:5478
+dispatchDiscreteEvent @ chunk-MNF4PNE3.js?v=2743551d:5455Understand this error
+injected.js:37 [Sentry] No VITE_SENTRY_DSN configured, error tracking disabled
+injected.js:214  POST https://api.mainnet-beta.solana.com/ 403 (Forbidden)
+apply @ injected.js:214
+(anonymous) @ @solana_web3__js.js?v=2743551d:15332
+ClientBrowser.request @ @solana_web3__js.js?v=2743551d:5915
+(anonymous) @ @solana_web3__js.js?v=2743551d:15363
+(anonymous) @ @solana_web3__js.js?v=2743551d:15362
+getAccountInfoAndContext @ @solana_web3__js.js?v=2743551d:16143
+getAccountInfo @ @solana_web3__js.js?v=2743551d:16171
+getMint @ @solana_spl-token.js?v=2743551d:22352
+handleDeposit @ StakeModal.tsx:115
+await in handleDeposit
+callCallback2 @ chunk-MNF4PNE3.js?v=2743551d:3680
+invokeGuardedCallbackDev @ chunk-MNF4PNE3.js?v=2743551d:3705
+invokeGuardedCallback @ chunk-MNF4PNE3.js?v=2743551d:3739
+invokeGuardedCallbackAndCatchFirstError @ chunk-MNF4PNE3.js?v=2743551d:3742
+executeDispatch @ chunk-MNF4PNE3.js?v=2743551d:7046
+processDispatchQueueItemsInOrder @ chunk-MNF4PNE3.js?v=2743551d:7066
+processDispatchQueue @ chunk-MNF4PNE3.js?v=2743551d:7075
+dispatchEventsForPlugins @ chunk-MNF4PNE3.js?v=2743551d:7083
+(anonymous) @ chunk-MNF4PNE3.js?v=2743551d:7206
+batchedUpdates$1 @ chunk-MNF4PNE3.js?v=2743551d:18966
+batchedUpdates @ chunk-MNF4PNE3.js?v=2743551d:3585
+dispatchEventForPluginEventSystem @ chunk-MNF4PNE3.js?v=2743551d:7205
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-MNF4PNE3.js?v=2743551d:5484
+dispatchEvent @ chunk-MNF4PNE3.js?v=2743551d:5478
+dispatchDiscreteEvent @ chunk-MNF4PNE3.js?v=2743551d:5455Understand this error
+injected.js:37 Deposit error: Error: failed to get info about account F3zvEFZVhDXNo1kZDPg24Z3RioDzCdEJVdnZ5FCcpump: Error: 403 :  {"jsonrpc":"2.0","error":{"code": 403, "message":"Access forbidden"}, "id": "24e4ef1a-aa72-4cf8-b9b3-64a6020823b3" } 
+
+    at Connection.getAccountInfo (@solana_web3__js.js?v=2743551d:16174:13)
+    at async getMint (@solana_spl-token.js?v=2743551d:22352:16)
+    at async handleDeposit (StakeModal.tsx:115:24)
+(anonymous) @ injected.js:37
+handleDeposit @ StakeModal.tsx:183
+await in handleDeposit
+callCallback2 @ chunk-MNF4PNE3.js?v=2743551d:3680
+invokeGuardedCallbackDev @ chunk-MNF4PNE3.js?v=2743551d:3705
+invokeGuardedCallback @ chunk-MNF4PNE3.js?v=2743551d:3739
+invokeGuardedCallbackAndCatchFirstError @ chunk-MNF4PNE3.js?v=2743551d:3742
+executeDispatch @ chunk-MNF4PNE3.js?v=2743551d:7046
+processDispatchQueueItemsInOrder @ chunk-MNF4PNE3.js?v=2743551d:7066
+processDispatchQueue @ chunk-MNF4PNE3.js?v=2743551d:7075
+dispatchEventsForPlugins @ chunk-MNF4PNE3.js?v=2743551d:7083
+(anonymous) @ chunk-MNF4PNE3.js?v=2743551d:7206
+batchedUpdates$1 @ chunk-MNF4PNE3.js?v=2743551d:18966
+batchedUpdates @ chunk-MNF4PNE3.js?v=2743551d:3585
+dispatchEventForPluginEventSystem @ chunk-MNF4PNE3.js?v=2743551d:7205
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-MNF4PNE3.js?v=2743551d:5484
+dispatchEvent @ chunk-MNF4PNE3.js?v=2743551d:5478
+dispatchDiscreteEvent @ chunk-MNF4PNE3.js?v=2743551d:5455Understand this error
