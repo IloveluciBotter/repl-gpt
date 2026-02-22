@@ -166,16 +166,23 @@ export function StakeModal({
         { skipPreflight: false },
       );
 
-      for (let i = 0; i < 40; i++) {
+      let confirmed = false;
+      for (let i = 0; i < 60; i++) {
         const st = await connection.getSignatureStatuses([signature]);
         const s = st.value[0];
         if (s?.err) throw new Error("Transaction failed on-chain");
-        if (s?.confirmationStatus === "confirmed" || s?.confirmationStatus === "finalized") break;
+        if (s?.confirmationStatus === "confirmed" || s?.confirmationStatus === "finalized") {
+          confirmed = true;
+          break;
+        }
         await new Promise((r) => setTimeout(r, 1000));
       }
+      if (!confirmed) throw new Error("Transaction was not confirmed in time");
 
       setTxSignature(signature);
       setStep("confirming");
+
+      await new Promise((r) => setTimeout(r, 2000));
 
       const result = await api.stake.confirmDeposit(signature, depositAmount);
 

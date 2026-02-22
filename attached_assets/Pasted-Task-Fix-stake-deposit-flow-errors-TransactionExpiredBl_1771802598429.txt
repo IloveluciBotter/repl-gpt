@@ -1,0 +1,48 @@
+Task: Fix stake/deposit flow errors:
+- TransactionExpiredBlockheightExceededError
+- Backend /api/stake/confirm returns 400: "No transfer to vault address found in transaction"
+- WebSocket confirm failures in Replit
+
+File:
+Repl-GPT/client/src/components/StakeModal.tsx
+
+What’s happening:
+1) The code still uses connection.confirmTransaction(...) which relies on websockets and can expire/block-height timeout in Replit.
+2) The server’s confirm endpoint expects to find a transfer to the vault address, but the tx may not be finalized/visible yet when confirm runs OR the tx is not being constructed in a way the server recognizes.
+3) Also, HIVE is Token-2022, so all token instructions must use TOKEN_2022_PROGRAM_ID consistently.
+
+Do (client-side fixes only):
+A) Ensure Token-2022 is used everywhere:
+- In the dynamic import from "@solana/spl-token", use:
+  TOKEN_2022_PROGRAM_ID and ASSOCIATED_TOKEN_PROGRAM_ID
+- Replace any TOKEN_PROGRAM_ID usage with TOKEN_2022_PROGRAM_ID in:
+  createAssociatedTokenAccountInstruction(...)
+  createTransferInstruction(...)
+
+B) Remove confirmTransaction() entirely and replace with HTTP polling:
+- After sendRawTransaction returns `signature`, poll:
+  connection.getSignatureStatuses([signature])
+  until confirmationStatus is "confirmed" or "finalized"
+  (no websocket subscriptions).
+- If status shows err, throw.
+
+C) Prevent premature server confirm:
+- Only call api.stake.confirmDeposit(signature, depositAmount) AFTER the polling confirms the tx is confirmed/finalized.
+- Add a small delay (e.g., 1–2 seconds) after confirmation before calling confirmDeposit to allow RPC indexing.
+
+Implementation details:
+- Replace any code like:
+  await connection.confirmTransaction(...)
+  with polling + optional delay:
+  for (let i=0; i<60; i++) { ... await sleep(1000) }
+  await sleep(1500)
+
+Do NOT:
+- Do not change server files.
+- Do not reintroduce websocket usage.
+- Do not change RPC URL.
+
+After:
+- Save file.
+- Restart app.
+- Retest deposit; confirm that /api/stake/confirm no longer returns "No transfer to vault address found".
