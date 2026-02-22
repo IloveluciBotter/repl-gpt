@@ -84,7 +84,7 @@ export function StakeModal({ isOpen, onClose, currentStake, requiredFee, onStake
       } = await import("@solana/spl-token");
 
       const connection = new Connection(
-        import.meta.env.VITE_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+        "https://api.mainnet-beta.solana.com",
         "confirmed"
       );
 
