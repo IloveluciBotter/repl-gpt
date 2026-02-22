@@ -1,5 +1,5 @@
 import { db } from "../server/db";
-import { tracks, questions, cycles, trainingPool } from "@shared/schema";
+import { tracks, questions, cycles, trainingPool } from "../shared/schema";
 import { eq, sql } from "drizzle-orm";
 
 async function seed() {
