@@ -345,8 +345,32 @@ export async function registerRoutes(
 
   app.get("/api/tracks/:trackId/questions", publicReadLimiter, async (req: Request, res: Response) => {
     try {
-      const questions = await storage.getQuestionsByTrack(req.params.trackId);
-      res.json(questions);
+      const level = parseInt(req.query.level as string) || 0;
+      let allQuestions = await storage.getQuestionsByTrack(req.params.trackId);
+
+      if (level > 0 && allQuestions.length > 0) {
+        let maxComplexity: number;
+        let minComplexity: number;
+        if (level <= 5) {
+          minComplexity = 1; maxComplexity = 1;
+        } else if (level <= 10) {
+          minComplexity = 1; maxComplexity = 2;
+        } else if (level <= 15) {
+          minComplexity = 1; maxComplexity = 3;
+        } else if (level <= 20) {
+          minComplexity = 2; maxComplexity = 4;
+        } else {
+          minComplexity = 3; maxComplexity = 5;
+        }
+        const filtered = allQuestions.filter(
+          (q) => q.complexity >= minComplexity && q.complexity <= maxComplexity
+        );
+        if (filtered.length > 0) {
+          allQuestions = filtered;
+        }
+      }
+
+      res.json(allQuestions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch questions" });
     }

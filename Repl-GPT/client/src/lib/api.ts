@@ -93,7 +93,7 @@ export const api = {
         Array<{ id: string; name: string; description: string | null }>
       >("/api/tracks"),
 
-    getQuestions: (trackId: string) =>
+    getQuestions: (trackId: string, level?: number) =>
       fetchApi<
         Array<{
           id: string;
@@ -102,7 +102,7 @@ export const api = {
           correctIndex: number;
           complexity: number;
         }>
-      >(`/api/tracks/${trackId}/questions`),
+      >(`/api/tracks/${trackId}/questions${level ? `?level=${level}` : ""}`),
   },
 
   corpus: {

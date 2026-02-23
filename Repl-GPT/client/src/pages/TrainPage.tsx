@@ -110,7 +110,7 @@ export function TrainPage({
     setEconomyResult(null);
     setSessionComplete(false);
     try {
-      const data = await api.tracks.getQuestions(trackId);
+      const data = await api.tracks.getQuestions(trackId, intelligenceLevel);
       const shuffled = data.sort(() => Math.random() - 0.5).slice(0, 10);
       setQuestions(shuffled);
       setCurrentIndex(0);
