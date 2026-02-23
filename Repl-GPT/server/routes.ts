@@ -27,6 +27,8 @@ import {
   submitLimiter,
   corpusLimiter,
   reviewLimiter,
+  stakeConfirmLimiter,
+  bootstrapLimiter,
 } from "./middleware/rateLimit";
 import { createAuditHelper } from "./services/audit";
 import { logger } from "./middleware/logger";
@@ -1640,7 +1642,7 @@ export async function registerRoutes(
 
   // Bootstrap first admin: POST { key } with valid session. Disabled once any admin exists.
   const bootstrapSchema = z.object({ key: z.string() });
-  app.post("/api/admin/bootstrap", requireAuthMiddleware, async (req: Request, res: Response) => {
+  app.post("/api/admin/bootstrap", requireAuthMiddleware, bootstrapLimiter, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const body = bootstrapSchema.parse(req.body);
@@ -1652,8 +1654,9 @@ export async function registerRoutes(
         await audit.log("login_failure", { targetType: "user", metadata: { reason: "bootstrap_invalid_key" } });
         return res.status(403).json({ error: "Invalid bootstrap key", code: "INVALID_KEY" });
       }
+      const isDev = process.env.NODE_ENV === "development";
       const hasAdmin = await storage.hasAnyAdmin();
-      if (hasAdmin) {
+      if (!isDev && hasAdmin) {
         return res.status(403).json({ error: "Bootstrap disabled - admin already exists", code: "BOOTSTRAP_DISABLED" });
       }
       const walletAddress = (req as any).walletAddress;
@@ -1665,7 +1668,8 @@ export async function registerRoutes(
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors, code: "VALIDATION_ERROR" });
       }
-      logger.error({ requestId: req.requestId, error: "Bootstrap error", details: error });
+      // Never log body or BOOTSTRAP_ADMIN_KEY
+      logger.error({ requestId: req.requestId, error: "Bootstrap error", details: error instanceof Error ? error.message : "Unknown" });
       res.status(500).json({ error: "Bootstrap failed" });
     }
   });

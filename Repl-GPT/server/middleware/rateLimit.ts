@@ -98,3 +98,17 @@ export const reviewLimiter = createLimiter({
   message: "Too many review requests",
   useWallet: true,
 });
+
+export const stakeConfirmLimiter = createLimiter({
+  windowMs: 60 * 1000,
+  max: getEnvLimit("RATE_LIMIT_STAKE_CONFIRM", 20),
+  message: "Too many stake confirmation requests",
+  useWallet: true,
+});
+
+export const bootstrapLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000, // 15 min window
+  max: getEnvLimit("RATE_LIMIT_BOOTSTRAP", 5),
+  message: "Too many bootstrap attempts",
+  useWallet: true,
+});
