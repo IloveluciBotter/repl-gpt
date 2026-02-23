@@ -30,8 +30,10 @@ export function StakeModal({
 }: StakeModalProps) {
   const [step, setStep] = useState<Step>("input");
   const [amount, setAmount] = useState<string>("");
-  const [vaultAddress, setVaultAddress] = useState<string>("");
+  const [vaultTokenAccount, setVaultTokenAccount] = useState<string>("");
+  const [vaultOwner, setVaultOwner] = useState<string>("");
   const [mintAddress, setMintAddress] = useState<string>("");
+  const [tokenProgram, setTokenProgram] = useState<string>("");
   const [txSignature, setTxSignature] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [newBalance, setNewBalance] = useState<number>(0);
@@ -42,8 +44,10 @@ export function StakeModal({
       api.stake
         .getDepositInfo()
         .then((info) => {
-          setVaultAddress(info.vaultAddress);
+          setVaultTokenAccount(info.vaultTokenAccount);
+          setVaultOwner(info.vaultOwner);
           setMintAddress(info.mintAddress);
+          setTokenProgram(info.tokenProgram);
         })
         .catch(console.error);
 
@@ -61,7 +65,7 @@ export function StakeModal({
   };
 
   const copyVaultAddress = async () => {
-    await navigator.clipboard.writeText(vaultAddress);
+    await navigator.clipboard.writeText(vaultTokenAccount);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -70,6 +74,10 @@ export function StakeModal({
     const depositAmount = parseFloat(amount);
     if (isNaN(depositAmount) || depositAmount <= 0) {
       setError("Please enter a valid amount");
+      return;
+    }
+    if (!vaultTokenAccount || !tokenProgram) {
+      setError("Deposit info is loading. Please wait and try again.");
       return;
     }
 
@@ -99,7 +107,6 @@ export function StakeModal({
         createAssociatedTokenAccountInstruction,
         getAccount,
         getMint,
-        TOKEN_2022_PROGRAM_ID,
         ASSOCIATED_TOKEN_PROGRAM_ID,
       } = await import("@solana/spl-token");
 
@@ -109,14 +116,14 @@ export function StakeModal({
       );
 
       const fromPubkey = new PublicKey(wallet.publicKey.toString());
-      const toPubkey = new PublicKey(vaultAddress);
+      const toATA = new PublicKey(vaultTokenAccount);
       const mintPubkey = new PublicKey(mintAddress);
+      const tokenProgramPk = new PublicKey(tokenProgram);
 
-      const mintInfo = await getMint(connection, mintPubkey, "confirmed", TOKEN_2022_PROGRAM_ID);
+      const mintInfo = await getMint(connection, mintPubkey, "confirmed", tokenProgramPk);
       const decimals = mintInfo.decimals;
 
-      const fromATA = await getAssociatedTokenAddress(mintPubkey, fromPubkey, false, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
-      const toATA = await getAssociatedTokenAddress(mintPubkey, toPubkey, true, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+      const fromATA = await getAssociatedTokenAddress(mintPubkey, fromPubkey, false, tokenProgramPk, ASSOCIATED_TOKEN_PROGRAM_ID);
 
       const amountLamports = BigInt(
         Math.floor(depositAmount * Math.pow(10, decimals)),
@@ -124,9 +131,10 @@ export function StakeModal({
 
       const transaction = new Transaction();
 
+      const vaultOwnerPk = new PublicKey(vaultOwner);
       let toATAExists = false;
       try {
-        await getAccount(connection, toATA, "confirmed", TOKEN_2022_PROGRAM_ID);
+        await getAccount(connection, toATA, "confirmed", tokenProgramPk);
         toATAExists = true;
       } catch {
         toATAExists = false;
@@ -137,9 +145,9 @@ export function StakeModal({
           createAssociatedTokenAccountInstruction(
             fromPubkey,
             toATA,
-            toPubkey,
+            vaultOwnerPk,
             mintPubkey,
-            TOKEN_2022_PROGRAM_ID,
+            tokenProgramPk,
             ASSOCIATED_TOKEN_PROGRAM_ID,
           ),
         );
@@ -152,7 +160,7 @@ export function StakeModal({
           fromPubkey,
           amountLamports,
           [],
-          TOKEN_2022_PROGRAM_ID,
+          tokenProgramPk,
         ),
       );
 
@@ -294,10 +302,10 @@ export function StakeModal({
                 </div>
               </div>
 
-              {vaultAddress && (
+              {vaultTokenAccount && (
                 <div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">Vault Address</span>
+                    <span className="text-xs text-gray-400">Deposit to (Vault ATA)</span>
                     <button
                       onClick={copyVaultAddress}
                       className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
@@ -311,14 +319,14 @@ export function StakeModal({
                     </button>
                   </div>
                   <div className="font-mono text-sm text-gray-300 break-all">
-                    {shortAddress(vaultAddress)}
+                    {shortAddress(vaultTokenAccount)}
                   </div>
                 </div>
               )}
 
               <button
                 onClick={handleDeposit}
-                disabled={!amount || parseFloat(amount) <= 0}
+                disabled={!amount || parseFloat(amount) <= 0 || !vaultTokenAccount}
                 className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
               >
                 Deposit with Phantom

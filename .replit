@@ -1,7 +1,7 @@
 modules = ["nodejs-20", "postgresql-16"]
 [nix]
 channel = "stable-25_05"
-packages = ["unzip", "lsof"]
+packages = ["unzip", "lsof", "solana-cli"]
 
 [agent]
 expertMode = true
@@ -34,7 +34,14 @@ outputType = "webview"
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 5050
+externalPort = 3000
+
 [deployment]
 deploymentTarget = "autoscale"
 run = ["bash", "-c", "cd Repl-GPT && npm run start"]
 build = ["bash", "-c", "cd Repl-GPT && npm run build"]
+
+[env]
+PORT = "5000"

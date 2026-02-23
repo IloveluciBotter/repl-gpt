@@ -16,6 +16,7 @@ import {
   isCreator,
   getPublicAppDomain,
   revokeSession,
+  validateSession,
 } from "./auth";
 import {
   authNonceLimiter,
@@ -272,20 +273,24 @@ export async function registerRoutes(
     }
   });
 
-  // Logout endpoint
-  app.post("/api/auth/logout", requireAuthMiddleware, async (req: Request, res: Response) => {
+  // Logout endpoint (idempotent: no auth required; clears session if present)
+  app.post("/api/auth/logout", async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
-      const sessionId = (req as any).sessionId;
-      if (sessionId) {
-        await revokeSession(sessionId);
+      const sessionToken = req.cookies?.sid;
+      if (sessionToken) {
+        const result = await validateSession(sessionToken);
+        if (result.valid && result.sessionId) {
+          await revokeSession(result.sessionId);
+          await audit.log("logout", { targetType: "session" });
+        }
       }
-      await audit.log("logout", { targetType: "session" });
       res.clearCookie("sid", { path: "/" });
       res.json({ ok: true });
     } catch (error) {
       logger.error({ requestId: req.requestId, error: "Logout error", details: error });
-      res.status(500).json({ error: "Failed to logout" });
+      res.clearCookie("sid", { path: "/" });
+      res.json({ ok: true });
     }
   });
 
@@ -996,12 +1001,9 @@ export async function registerRoutes(
   app.get("/api/stake/deposit-info", requireAuthMiddleware, async (req: Request, res: Response) => {
     try {
       const config = getEconomyConfig();
-      
-      res.json({
-        vaultAddress: config.vaultAddress,
-        mintAddress: config.mintAddress,
-        instructions: "Send HIVE tokens to the vault address, then call POST /api/stake/confirm with the transaction signature",
-      });
+      const { getDepositInfo } = await import("./services/solanaVerify");
+      const info = await getDepositInfo(config.vaultAddress, config.mintAddress);
+      res.json(info);
     } catch (error) {
       logger.error({ requestId: req.requestId, error: "Deposit info error", details: error });
       res.status(500).json({ error: "Failed to get deposit info" });
@@ -1044,11 +1046,15 @@ export async function registerRoutes(
           reason: verification.error,
           txSignature: body.txSignature,
           claimedAmount: body.amount,
+          diagnostic: verification.diagnostic,
         });
-        return res.status(400).json({
+        const payload: Record<string, unknown> = {
           error: "verification_failed",
           message: verification.error || "Could not verify deposit on chain",
-        });
+        };
+        if (verification.reason) payload.reason = verification.reason;
+        if (verification.diagnostic) payload.diagnostic = verification.diagnostic;
+        return res.status(400).json(payload);
       }
       
       const verifiedAmount = verification.verifiedAmount || body.amount;

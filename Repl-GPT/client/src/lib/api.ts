@@ -1,6 +1,8 @@
 import { captureError } from "./sentry";
 
-const API_BASE = "";
+// Production: same-origin (relative paths). Dev: VITE_API_URL override if set.
+const API_BASE =
+  import.meta.env.DEV ? (import.meta.env.VITE_API_URL ?? "") : "";
 
 async function fetchApi<T>(
   endpoint: string,
@@ -266,8 +268,10 @@ export const api = {
 
     getDepositInfo: () =>
       fetchApi<{
-        vaultAddress: string;
+        vaultOwner: string;
+        vaultTokenAccount: string;
         mintAddress: string;
+        tokenProgram: string;
         instructions: string;
       }>("/api/stake/deposit-info"),
 
