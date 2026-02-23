@@ -103,7 +103,7 @@ export function StakeModal({
       );
       const {
         getAssociatedTokenAddress,
-        createTransferInstruction,
+        createTransferCheckedInstruction,
         createAssociatedTokenAccountInstruction,
         getAccount,
         getMint,
@@ -154,11 +154,13 @@ export function StakeModal({
       }
 
       transaction.add(
-        createTransferInstruction(
+        createTransferCheckedInstruction(
           fromATA,
+          mintPubkey,
           toATA,
           fromPubkey,
           amountLamports,
+          decimals,
           [],
           tokenProgramPk,
         ),
