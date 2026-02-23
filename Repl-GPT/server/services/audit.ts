@@ -23,6 +23,8 @@ export type AuditAction =
   | "fee_reserved"
   | "fee_refunded"
   | "fee_routed_to_rewards"
+  | "fee_settled_pass"
+  | "fee_settled_fail"
   | "auto_review_approved"
   | "auto_review_rejected"
   | "auto_review_pending"

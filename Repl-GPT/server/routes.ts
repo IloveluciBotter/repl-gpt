@@ -1205,12 +1205,8 @@ export async function registerRoutes(
         });
       }
       
-      const stakeAfterReserve = currentStake - feeHive;
-      await storage.updateStakeBalance(publicKey, stakeAfterReserve.toFixed(8));
-      
       const cost = getCostByDifficulty(body.difficulty);
       
-      // Calculate score and duration
       let scorePct = 0;
       let attemptDurationSec = 0;
       
@@ -1225,7 +1221,6 @@ export async function registerRoutes(
         attemptDurationSec = Math.floor((Date.now() - body.startTime) / 1000);
       }
       
-      // Generate evidence packet
       const evidencePacket = {
         phrases: [],
         topics: [],
@@ -1236,20 +1231,6 @@ export async function registerRoutes(
         attemptDurationSec,
       };
       
-      await storage.createStakeLedgerEntry({
-        walletAddress: publicKey,
-        amount: (-feeHive).toFixed(8),
-        balanceAfter: stakeAfterReserve.toFixed(8),
-        reason: "fee_reserve",
-        metadata: { difficulty: body.difficulty, feeHive },
-      });
-      
-      await audit.log("fee_reserved", {
-        targetType: "stake",
-        metadata: { feeHive, stakeAfterReserve },
-      });
-      
-      // Create the attempt
       const attempt = await storage.createTrainAttempt({
         userId: publicKey,
         trackId: body.trackId,
@@ -1267,11 +1248,9 @@ export async function registerRoutes(
         metadata: { trackId: body.trackId, difficulty: body.difficulty, cycleId: currentCycle.id, feeHive },
       });
       
-      // Apply auto-review logic
       const autoReviewConfig = getAutoReviewConfig();
       const reviewResult = computeAutoReview(scorePct, attemptDurationSec, autoReviewConfig);
       
-      // Update attempt with auto-review result
       const updatedAttempt = await storage.updateAttemptAutoReview(attempt.id, {
         status: reviewResult.decision,
         scorePct: scorePct.toFixed(4),
@@ -1280,45 +1259,31 @@ export async function registerRoutes(
         evidencePacket,
       });
       
-      // Calculate fee settlement based on score
       const economyConfig = getEconomyConfig();
       const passed = scorePct >= economyConfig.passThreshold;
       const feeSettlement = calculateFeeSettlement(feeHive, scorePct, passed);
       
-      // Refund portion back to stake
-      let stakeAfter = stakeAfterReserve;
-      if (feeSettlement.refundHive > 0) {
-        stakeAfter = stakeAfterReserve + feeSettlement.refundHive;
-        await storage.updateStakeBalance(publicKey, stakeAfter.toFixed(8));
-        
-        await storage.createStakeLedgerEntry({
-          walletAddress: publicKey,
-          amount: feeSettlement.refundHive.toFixed(8),
-          balanceAfter: stakeAfter.toFixed(8),
-          reason: "fee_refund",
-          attemptId: attempt.id,
-          metadata: { scorePct, refundHive: feeSettlement.refundHive },
-        });
-        
-        await audit.log("fee_refunded", {
-          targetType: "stake",
-          targetId: attempt.id,
-          metadata: { refundHive: feeSettlement.refundHive, scorePct, stakeAfter },
-        });
-      }
+      const netCost = feeHive - feeSettlement.refundHive;
+      const stakeAfter = currentStake - netCost;
+      await storage.updateStakeBalance(publicKey, stakeAfter.toFixed(8));
       
-      // Route cost to rewards pool
+      await storage.createStakeLedgerEntry({
+        walletAddress: publicKey,
+        amount: (-netCost).toFixed(8),
+        balanceAfter: stakeAfter.toFixed(8),
+        reason: passed ? "training_fee_passed" : "training_fee_failed",
+        attemptId: attempt.id,
+        metadata: { difficulty: body.difficulty, feeHive, netCost, refundHive: feeSettlement.refundHive, scorePct, passed },
+      });
+      
+      await audit.log(passed ? "fee_settled_pass" : "fee_settled_fail", {
+        targetType: "stake",
+        targetId: attempt.id,
+        metadata: { feeHive, netCost, refundHive: feeSettlement.refundHive, scorePct, stakeAfter },
+      });
+      
       if (feeSettlement.costHive > 0) {
         await storage.addToRewardsPool(feeSettlement.costHive.toFixed(8));
-        
-        await storage.createStakeLedgerEntry({
-          walletAddress: publicKey,
-          amount: (-feeSettlement.costHive).toFixed(8),
-          balanceAfter: stakeAfter.toFixed(8),
-          reason: "fee_cost_to_rewards",
-          attemptId: attempt.id,
-          metadata: { costHive: feeSettlement.costHive, scorePct },
-        });
         
         await audit.log("fee_routed_to_rewards", {
           targetType: "rewards_pool",

@@ -383,31 +383,34 @@ export function TrainPage({
                     <Coins className="w-4 h-4" />
                     Stake Economy
                   </h3>
-                  <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="text-center">
-                      <div className="text-gray-400 text-xs mb-1">Fee Reserved</div>
+                      <div className="text-gray-400 text-xs mb-1">Training Fee</div>
                       <div className="text-orange-400 font-medium">{economyResult.feeHive.toFixed(4)}</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-gray-400 text-xs mb-1">Cost</div>
-                      <div className={`font-medium flex items-center justify-center gap-1 ${
-                        economyResult.costHive > 0 ? "text-red-400" : "text-green-400"
-                      }`}>
-                        {economyResult.costHive > 0 ? (
-                          <TrendingDown className="w-3 h-3" />
-                        ) : (
-                          <TrendingUp className="w-3 h-3" />
-                        )}
-                        {economyResult.costHive.toFixed(4)}
+                      <div className="text-gray-400 text-xs mb-1">
+                        {economyResult.refundHive > 0 ? "Refunded" : "Deducted"}
                       </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-gray-400 text-xs mb-1">Refund</div>
-                      <div className="text-green-400 font-medium">+{economyResult.refundHive.toFixed(4)}</div>
+                      <div className={`font-medium flex items-center justify-center gap-1 ${
+                        economyResult.refundHive > 0 ? "text-green-400" : "text-red-400"
+                      }`}>
+                        {economyResult.refundHive > 0 ? (
+                          <>
+                            <TrendingUp className="w-3 h-3" />
+                            +{economyResult.refundHive.toFixed(4)}
+                          </>
+                        ) : (
+                          <>
+                            <TrendingDown className="w-3 h-3" />
+                            -{economyResult.costHive.toFixed(4)}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-gray-600/50 text-center">
-                    <div className="text-gray-400 text-xs mb-1">New Balance</div>
+                    <div className="text-gray-400 text-xs mb-1">Stake Balance</div>
                     <div className="text-lg font-semibold text-white">{economyResult.stakeAfter.toFixed(4)} HIVE</div>
                   </div>
                 </div>
