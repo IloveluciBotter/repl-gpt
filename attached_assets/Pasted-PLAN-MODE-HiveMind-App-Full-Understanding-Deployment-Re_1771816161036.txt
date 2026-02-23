@@ -1,0 +1,79 @@
+PLAN MODE: HiveMind App Full Understanding + Deployment Readiness
+
+You are my Replit “App Auditor + Deployment Planner”.
+Your job is to understand this codebase end-to-end and produce a concrete deployment plan.
+Do not guess. Prove everything by reading code and running commands locally in Replit.
+
+DELIVERABLES (must output these sections):
+1) Architecture Map
+2) Critical Flows Walkthrough (Auth, Token Gate, Stake Deposit, Training Submit, RAG Chat, Admin)
+3) Environment + Secrets Matrix (Required vs Optional)
+4) Database + Migrations Status
+5) Build/Run Status (what works now, what fails now)
+6) Deployment Checklist (blockers + fixes in priority order)
+7) Post-deploy verification checklist (curl steps)
+
+WORK YOU MUST DO (in order):
+A) Identify the real app root
+- Find the package.json that contains scripts: dev/build/start/check.
+- Confirm client and server entrypoints and output directories.
+
+B) Repo inventory
+- List key folders: client/, server/, script/, migrations/ (if any), drizzle config.
+- Identify the main route file(s), auth middleware, token gate middleware, admin middleware.
+- Identify Solana verification code, stake ledger, wallet balances tables, and RAG/embedding pipeline.
+
+C) Build and typecheck
+- Run:
+  - npm install
+  - npm run check
+  - npm run build
+- If failures occur, list them as BLOCKERS with exact file:line and the minimal fix.
+- If missing deps, install them and re-run. Do not stop until check+build pass or you hit a hard blocker.
+
+D) Runtime smoke test (local)
+- Start the server in production mode (or the closest available script).
+- Call these endpoints and record results:
+  - GET /api/health
+  - GET /api/economy/config
+  - GET /api/admin/bootstrap-status
+  - GET /api/stake/status (note auth requirement)
+- If any 500 occurs, trace to root cause and propose a fix.
+
+E) Env/Secrets audit
+- Find all process.env usage in server and import.meta.env usage in client.
+- Compare to .env.example and server/env.ts validation.
+- Output a table:
+  ENV_VAR | Where used (file:line) | Required in production? | Default behavior | Risk if missing | Present? (unknown if secrets hidden)
+- Must include:
+  DATABASE_URL, PUBLIC_APP_DOMAIN, SOLANA_RPC_URL, HIVE_MINT, HIVE_VAULT_ADDRESS,
+  BOOTSTRAP_ADMIN_KEY, SESSION_SECRET, SENTRY_DSN, VITE_SENTRY_DSN,
+  REWARDS_WALLET_ADDRESS, ADMIN_EDIT_KEY.
+
+F) Confirm the “critical fixes” are in place (code proof)
+- Training scoring is computed server-side from DB questions (no client correctAnswers trust).
+- Training fee settlement is atomic (db.transaction).
+- Stake confirm is idempotent + atomic (unique tx_signature + transaction).
+- Admin is DB-role based (isAdmin + requireAdmin), no wallet allowlist.
+- Bootstrap admin works via /bootstrap-admin.
+
+OUTPUT FORMAT (MANDATORY):
+1) CURRENT STATUS
+- Ready to deploy: YES/NO
+- If NO: list Top Blockers (max 10) with exact fixes.
+
+2) APP UNDERSTANDING (high level)
+- A 1-page summary of what the app does and how users flow through it.
+
+3) DEPLOYMENT PLAN
+- Step-by-step deployment sequence with commands and expected outputs.
+- Include: migrate DB, set secrets, build, start, verify.
+
+4) POST-DEPLOY CHECKS (copy/paste)
+- curl commands + expected JSON fields.
+
+RULES:
+- Do not ask me questions unless you are truly blocked.
+- Prefer smallest changes that unblock deployment.
+- Always cite file paths and line numbers for every claim.
+- If you make a change, rerun check+build to confirm it’s fixed.
