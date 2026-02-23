@@ -57,6 +57,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  ensureWalletUser(walletAddress: string): Promise<User>;
   updateUserRole(userId: string, role: "reviewer" | "hubPoster" | "admin", value: boolean): Promise<User>;
 
   // Track operations
@@ -246,6 +247,18 @@ export class DbStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const result = await db.insert(users).values(insertUser).returning();
     return result[0];
+  }
+
+  async ensureWalletUser(walletAddress: string): Promise<User> {
+    const existing = await this.getUser(walletAddress);
+    if (existing) return existing;
+    const result = await db.insert(users).values({
+      id: walletAddress,
+      username: walletAddress,
+      password: "wallet-auth",
+    }).onConflictDoNothing().returning();
+    if (result[0]) return result[0];
+    return (await this.getUser(walletAddress))!;
   }
 
   async updateUserRole(userId: string, role: "reviewer" | "hubPoster" | "admin", value: boolean): Promise<User> {

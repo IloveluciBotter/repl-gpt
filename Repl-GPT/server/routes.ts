@@ -246,6 +246,8 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Invalid signature", code: "INVALID_SIGNATURE" });
       }
 
+      await storage.ensureWalletUser(walletAddress);
+
       // Create server-side session
       const { sessionToken, expiresAt } = await createSession(walletAddress);
 
