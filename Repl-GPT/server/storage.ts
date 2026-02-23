@@ -50,12 +50,14 @@ import {
   cycleAggregates,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, gte, lte, isNull, gt } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, isNull, gt, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUsers(search?: string): Promise<User[]>;
+  hasAnyAdmin(): Promise<boolean>;
   createUser(user: InsertUser): Promise<User>;
   ensureWalletUser(walletAddress: string): Promise<User>;
   updateUserRole(userId: string, role: "reviewer" | "hubPoster" | "admin", value: boolean): Promise<User>;
@@ -70,6 +72,7 @@ export interface IStorage {
   // Question operations
   getQuestionsByTrack(trackId: string): Promise<Question[]>;
   getBenchmarkQuestions(): Promise<Question[]>;
+  getQuestionsCorrectIndexByIds(questionIds: string[]): Promise<Array<{ id: string; correctIndex: number }>>;
   createQuestion(data: {
     trackId?: string;
     text: string;
@@ -226,10 +229,32 @@ export interface IStorage {
   }): Promise<StakeLedgerEntry>;
   getStakeLedgerByTxSignature(txSignature: string): Promise<StakeLedgerEntry | undefined>;
 
+  // Atomic deposit confirmation (idempotent, race-safe)
+  confirmDepositAtomic(params: {
+    walletAddress: string;
+    txSignature: string;
+    verifiedAmount: number;
+    sender?: string;
+  }): Promise<{ credited: number; stakeAfter: number } | null>; // null = duplicate
+
   // Rewards pool operations
   getRewardsPool(): Promise<RewardsPool>;
   addToRewardsPool(amount: string): Promise<void>;
   sweepRewardsPool(toWallet: string): Promise<string>;
+
+  // Atomic training fee settlement (balance + ledger + rewards in one transaction)
+  settleTrainingFeeAtomic(params: {
+    walletAddress: string;
+    attemptId: string;
+    netCost: number;
+    stakeAfter: number;
+    passed: boolean;
+    difficulty: string;
+    feeHive: number;
+    refundHive: number;
+    scorePct: number;
+    costHive: number;
+  }): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -242,6 +267,20 @@ export class DbStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
     return result[0];
+  }
+
+  async getUsers(search: string = ""): Promise<User[]> {
+    const all = await db.select().from(users).orderBy(users.username);
+    if (!search || search.trim().length === 0) return all;
+    const s = search.trim().toLowerCase();
+    return all.filter((u) =>
+      u.username?.toLowerCase().includes(s) || u.id?.toLowerCase().includes(s)
+    );
+  }
+
+  async hasAnyAdmin(): Promise<boolean> {
+    const result = await db.select().from(users).where(eq(users.isAdmin, true)).limit(1);
+    return result.length > 0;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -310,6 +349,15 @@ export class DbStorage implements IStorage {
     return await db.select().from(questions).where(eq(questions.isBenchmark, true));
   }
 
+  async getQuestionsCorrectIndexByIds(questionIds: string[]): Promise<Array<{ id: string; correctIndex: number }>> {
+    if (questionIds.length === 0) return [];
+    const rows = await db
+      .select({ id: questions.id, correctIndex: questions.correctIndex })
+      .from(questions)
+      .where(inArray(questions.id, questionIds));
+    return rows;
+  }
+
   async createQuestion(data: {
     trackId?: string;
     text: string;
@@ -367,12 +415,13 @@ export class DbStorage implements IStorage {
 
   // Phrase operations
   async getPhrasesByMentions(minMentions: number, cycleId?: number): Promise<Phrase[]> {
-    const query = db.select().from(phrases).$dynamic();
     if (cycleId) {
-      return await query.where(and(gte(phrases.globalMentions, minMentions), eq(phrases.lastCycleCounted, cycleId)));
-    } else {
-      return await query.where(gte(phrases.globalMentions, minMentions));
+      return await db
+        .select()
+        .from(phrases)
+        .where(and(gte(phrases.globalMentions, minMentions), eq(phrases.lastCycleCounted, cycleId)));
     }
+    return await db.select().from(phrases).where(gte(phrases.globalMentions, minMentions));
   }
 
   async incrementPhraseMention(normalized: string, redacted: string, trackId?: string): Promise<Phrase> {
@@ -539,11 +588,13 @@ export class DbStorage implements IStorage {
   }
 
   async getActiveLocks(userId?: string): Promise<Lock[]> {
-    const query = db.select().from(locks).$dynamic();
     if (userId) {
-      return await query.where(and(sql`${locks.unlockedAt} IS NULL`, eq(locks.userId, userId)));
+      return await db
+        .select()
+        .from(locks)
+        .where(and(sql`${locks.unlockedAt} IS NULL`, eq(locks.userId, userId)));
     }
-    return await query.where(sql`${locks.unlockedAt} IS NULL`);
+    return await db.select().from(locks).where(sql`${locks.unlockedAt} IS NULL`);
   }
 
   async unlockLocks(cycleNumber: number): Promise<void> {
@@ -996,6 +1047,56 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async confirmDepositAtomic(params: {
+    walletAddress: string;
+    txSignature: string;
+    verifiedAmount: number;
+    sender?: string;
+  }): Promise<{ credited: number; stakeAfter: number } | null> {
+    const { walletAddress, txSignature, verifiedAmount, sender } = params;
+    const amountStr = verifiedAmount.toFixed(8);
+
+    return await db.transaction(async (tx) => {
+      // Ensure wallet row exists and lock it to prevent concurrent balance updates
+      await tx.execute(
+        sql`INSERT INTO wallet_balances (id, wallet_address, training_stake_hive, created_at, updated_at)
+            VALUES (gen_random_uuid(), ${walletAddress}, '0', NOW(), NOW())
+            ON CONFLICT (wallet_address) DO NOTHING`
+      );
+      const locked = await tx.execute(
+        sql`SELECT id, training_stake_hive FROM wallet_balances WHERE wallet_address = ${walletAddress} FOR UPDATE`
+      );
+      const row = (locked.rows as any[])[0];
+      if (!row) throw new Error("Wallet balance row missing after upsert");
+
+      const currentStake = parseFloat(row.training_stake_hive as string);
+      const newStake = currentStake + verifiedAmount;
+      const newStakeStr = newStake.toFixed(8);
+
+      // Insert ledger row – ON CONFLICT DO NOTHING on txSignature unique constraint
+      const inserted = await tx.execute(
+        sql`INSERT INTO stake_ledger (id, wallet_address, tx_signature, amount, balance_after, reason, metadata, created_at)
+            VALUES (gen_random_uuid(), ${walletAddress}, ${txSignature}, ${amountStr}, ${newStakeStr}, 'deposit',
+                    ${JSON.stringify({ fromTx: txSignature, sender, verified: true })}, NOW())
+            ON CONFLICT (tx_signature) DO NOTHING
+            RETURNING id`
+      );
+
+      // If nothing was inserted, this is a duplicate
+      if ((inserted.rows as any[]).length === 0) {
+        return null;
+      }
+
+      // Atomically update the balance
+      await tx.execute(
+        sql`UPDATE wallet_balances SET training_stake_hive = ${newStakeStr}, updated_at = NOW()
+            WHERE wallet_address = ${walletAddress}`
+      );
+
+      return { credited: verifiedAmount, stakeAfter: newStake };
+    });
+  }
+
   // Rewards pool operations
   async getRewardsPool(): Promise<RewardsPool> {
     const result = await db.select().from(rewardsPool).limit(1);
@@ -1016,6 +1117,62 @@ export class DbStorage implements IStorage {
       .update(rewardsPool)
       .set({ pendingHive: newPending, updatedAt: new Date() })
       .where(eq(rewardsPool.id, pool.id));
+  }
+
+  async settleTrainingFeeAtomic(params: {
+    walletAddress: string;
+    attemptId: string;
+    netCost: number;
+    stakeAfter: number;
+    passed: boolean;
+    difficulty: string;
+    feeHive: number;
+    refundHive: number;
+    scorePct: number;
+    costHive: number;
+  }): Promise<void> {
+    const {
+      walletAddress,
+      attemptId,
+      netCost,
+      stakeAfter,
+      passed,
+      difficulty,
+      feeHive,
+      refundHive,
+      scorePct,
+      costHive,
+    } = params;
+    const stakeAfterStr = stakeAfter.toFixed(8);
+    const netCostStr = (-netCost).toFixed(8);
+    const reason = passed ? "training_fee_passed" : "training_fee_failed";
+    await db.transaction(async (tx) => {
+      await tx
+        .update(walletBalances)
+        .set({ trainingStakeHive: stakeAfterStr, updatedAt: new Date() })
+        .where(eq(walletBalances.walletAddress, walletAddress));
+      await tx.insert(stakeLedger).values({
+        walletAddress,
+        amount: netCostStr,
+        balanceAfter: stakeAfterStr,
+        reason,
+        attemptId,
+        metadata: { difficulty, feeHive, netCost, refundHive, scorePct, passed },
+      });
+      if (costHive > 0) {
+        const poolRows = await tx.select().from(rewardsPool).limit(1);
+        let pool = poolRows[0];
+        if (!pool) {
+          const inserted = await tx.insert(rewardsPool).values({ pendingHive: "0", totalSweptHive: "0" }).returning();
+          pool = inserted[0];
+        }
+        const newPending = (parseFloat(pool.pendingHive) + costHive).toFixed(8);
+        await tx
+          .update(rewardsPool)
+          .set({ pendingHive: newPending, updatedAt: new Date() })
+          .where(eq(rewardsPool.id, pool.id));
+      }
+    });
   }
 
   async sweepRewardsPool(toWallet: string): Promise<string> {

@@ -12,7 +12,7 @@ import {
   requireAuth as requireAuthMiddleware,
   requireHiveAccess,
   checkHiveAccess,
-  requireCreator,
+  requireAdmin as requireAdminMiddleware,
   isCreator,
   getPublicAppDomain,
   revokeSession,
@@ -35,9 +35,9 @@ import { captureError } from "./sentry";
 import { seedDefaultTracks } from "./seed";
 import { getAutoReviewConfig, computeAutoReview, calculateStyleCredits, calculateIntelligenceGain } from "./services/autoReview";
 
-// Helper to get user ID from session (simplified - you may want to add proper auth)
+// Helper to get user ID from session. Wallet users: id === walletAddress.
 function getUserId(req: Request): string | null {
-  return (req as any).userId || null;
+  return (req as any).userId ?? (req as any).walletAddress ?? (req as any).publicKey ?? null;
 }
 
 function requireAuth(req: Request, res: Response): string | null {
@@ -49,22 +49,12 @@ function requireAuth(req: Request, res: Response): string | null {
   return userId;
 }
 
-async function requireAdmin(req: Request, res: Response): Promise<boolean> {
-  const userId = requireAuth(req, res);
-  if (!userId) return false;
-  
-  const user = await storage.getUser(userId);
-  if (!user || !user.isAdmin) {
-    res.status(403).json({ error: "Admin access required" });
-    return false;
-  }
-  return true;
-}
-
 async function requireReviewer(req: Request, res: Response): Promise<string | null> {
-  const userId = requireAuth(req, res);
-  if (!userId) return null;
-  
+  const userId = getUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return null;
+  }
   const user = await storage.getUser(userId);
   if (!user || !user.isReviewer) {
     res.status(403).json({ error: "Reviewer access required" });
@@ -306,6 +296,28 @@ export async function registerRoutes(
     });
   });
 
+  // Current user info (for frontend to show admin UI)
+  app.get("/api/me", requireAuthMiddleware, async (req: Request, res: Response) => {
+    try {
+      const walletAddress = (req as any).walletAddress;
+      const user = await storage.getUser(walletAddress);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json({
+        id: user.id,
+        username: user.username,
+        walletAddress: user.id,
+        isAdmin: user.isAdmin,
+        isReviewer: user.isReviewer,
+        isHubPoster: user.isHubPoster,
+      });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Get /api/me error", details: error });
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
   // ===== GATE STATUS =====
   app.get("/api/gate/status", requireAuthMiddleware, async (req: Request, res: Response) => {
     try {
@@ -386,7 +398,7 @@ export async function registerRoutes(
   });
 
   // ===== ADMIN: TRACK MANAGEMENT =====
-  app.post("/api/tracks", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.post("/api/tracks", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const { name, description } = req.body;
@@ -410,7 +422,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/tracks/:id", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.put("/api/tracks/:id", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const { id } = req.params;
@@ -447,7 +459,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/tracks/:id", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.delete("/api/tracks/:id", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const { id } = req.params;
@@ -487,7 +499,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/cycles/rollover", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.post("/api/cycles/rollover", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const currentCycle = await storage.getCurrentCycle();
@@ -659,7 +671,7 @@ export async function registerRoutes(
     sourceAttemptId: z.string().optional(),
   });
 
-  app.post("/api/corpus", requireAuthMiddleware, requireCreator, corpusLimiter, async (req: Request, res: Response) => {
+  app.post("/api/corpus", requireAuthMiddleware, requireAdminMiddleware, corpusLimiter, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const body = addCorpusItemSchema.parse(req.body);
@@ -700,7 +712,7 @@ export async function registerRoutes(
     trackId: z.string().optional(),
   });
 
-  app.put("/api/corpus/:id", requireAuthMiddleware, requireCreator, corpusLimiter, async (req: Request, res: Response) => {
+  app.put("/api/corpus/:id", requireAuthMiddleware, requireAdminMiddleware, corpusLimiter, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const body = updateCorpusItemSchema.parse(req.body);
@@ -753,7 +765,7 @@ export async function registerRoutes(
   });
 
   // Delete corpus item (Creator only)
-  app.delete("/api/corpus/:id", requireAuthMiddleware, requireCreator, corpusLimiter, async (req: Request, res: Response) => {
+  app.delete("/api/corpus/:id", requireAuthMiddleware, requireAdminMiddleware, corpusLimiter, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       await audit.log("corpus_item_deleted", {
@@ -812,7 +824,7 @@ export async function registerRoutes(
   });
 
   // Embed a corpus item (admin only)
-  app.post("/api/rag/embed/:id", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.post("/api/rag/embed/:id", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     try {
       const { embedCorpusItem } = await import("./services/rag");
       const chunksCreated = await embedCorpusItem(req.params.id);
@@ -824,7 +836,7 @@ export async function registerRoutes(
   });
 
   // Approve corpus item and auto-embed (admin only)
-  app.post("/api/corpus/:id/approve", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.post("/api/corpus/:id/approve", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const { approveCorpusItem } = await import("./services/rag");
@@ -848,7 +860,7 @@ export async function registerRoutes(
 
   // ===== EMBED STATUS ADMIN ENDPOINTS =====
 
-  app.get("/api/corpus/embed-status", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.get("/api/corpus/embed-status", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     try {
       const { getEmbedStatusSummary, getItemsByEmbedStatus } = await import("./services/embedWorker");
       const summary = await getEmbedStatusSummary();
@@ -867,7 +879,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/corpus/:id/retry-embed", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.post("/api/corpus/:id/retry-embed", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const { retryEmbedding } = await import("./services/embedWorker");
@@ -885,7 +897,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/corpus/:id/force-reembed", requireAuthMiddleware, requireCreator, async (req: Request, res: Response) => {
+  app.post("/api/corpus/:id/force-reembed", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     try {
       const { forceReembed } = await import("./services/embedWorker");
@@ -1047,15 +1059,8 @@ export async function registerRoutes(
       const publicKey = (req as any).publicKey;
       const body = confirmDepositSchema.parse(req.body);
       const config = getEconomyConfig();
-      
-      const existingEntry = await storage.getStakeLedgerByTxSignature(body.txSignature);
-      if (existingEntry) {
-        return res.status(409).json({ 
-          error: "duplicate_deposit", 
-          message: "This transaction has already been credited" 
-        });
-      }
-      
+
+      // Verify on-chain BEFORE entering the transaction (external RPC call)
       const { verifyDeposit } = await import("./services/solanaVerify");
       const verification = await verifyDeposit(
         body.txSignature,
@@ -1064,7 +1069,7 @@ export async function registerRoutes(
         body.amount,
         publicKey
       );
-      
+
       if (!verification.valid) {
         logger.warn({
           requestId: req.requestId,
@@ -1082,43 +1087,39 @@ export async function registerRoutes(
         if (verification.diagnostic) payload.diagnostic = verification.diagnostic;
         return res.status(400).json(payload);
       }
-      
+
       const verifiedAmount = verification.verifiedAmount || body.amount;
-      
-      const balance = await storage.getOrCreateWalletBalance(publicKey);
-      const currentStake = parseFloat(balance.trainingStakeHive);
-      const newStake = currentStake + verifiedAmount;
-      const newStakeStr = newStake.toFixed(8);
-      
-      await storage.updateStakeBalance(publicKey, newStakeStr);
-      
-      await storage.createStakeLedgerEntry({
+
+      // Atomic: insert ledger (ON CONFLICT DO NOTHING on txSignature) + update balance
+      // Returns null if the txSignature was already credited
+      const result = await storage.confirmDepositAtomic({
         walletAddress: publicKey,
         txSignature: body.txSignature,
-        amount: verifiedAmount.toFixed(8),
-        balanceAfter: newStakeStr,
-        reason: "deposit",
-        metadata: { 
-          fromTx: body.txSignature,
-          sender: verification.sender,
-          verified: true,
-        },
+        verifiedAmount,
+        sender: verification.sender,
       });
-      
+
+      if (result === null) {
+        return res.status(409).json({
+          error: "duplicate_deposit",
+          message: "This transaction has already been credited",
+        });
+      }
+
       await audit.log("deposit_confirmed", {
         targetType: "stake",
-        metadata: { 
-          txSignature: body.txSignature, 
-          amount: verifiedAmount, 
-          newStake,
+        metadata: {
+          txSignature: body.txSignature,
+          amount: verifiedAmount,
+          newStake: result.stakeAfter,
           sender: verification.sender,
         },
       });
-      
+
       res.json({
         success: true,
-        credited: verifiedAmount,
-        stakeAfter: newStake,
+        credited: result.credited,
+        stakeAfter: result.stakeAfter,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1166,16 +1167,26 @@ export async function registerRoutes(
   });
 
   // ===== TRAIN ATTEMPTS =====
-  const submitAttemptSchema = z.object({
-    trackId: z.string(),
-    difficulty: z.enum(["low", "medium", "high", "extreme"]),
-    content: z.string().min(1),
-    answers: z.array(z.number()).optional(),
-    correctAnswers: z.array(z.number()).optional(),
-    questionIds: z.array(z.string()).optional(),
-    startTime: z.number().optional(),
-    levelAtTime: z.number().optional(),
-  });
+  const submitAttemptSchema = z
+    .object({
+      trackId: z.string(),
+      difficulty: z.enum(["low", "medium", "high", "extreme"]),
+      content: z.string().min(1),
+      answers: z.array(z.number()).optional(),
+      correctAnswers: z.array(z.number()).optional(),
+      questionIds: z.array(z.string()).optional(),
+      startTime: z.number().optional(),
+      levelAtTime: z.number().optional(),
+    })
+    .refine(
+      (data) => {
+        if (data.answers && data.answers.length > 0) {
+          return !!data.questionIds && data.answers.length === data.questionIds.length;
+        }
+        return true;
+      },
+      { message: "If answers is provided, questionIds must be provided and answers.length must equal questionIds.length" }
+    );
 
   app.post("/api/train-attempts/submit", requireAuthMiddleware, requireHiveAccess, submitLimiter, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
@@ -1209,10 +1220,18 @@ export async function registerRoutes(
       
       let scorePct = 0;
       let attemptDurationSec = 0;
+      let correctIndexMap: Record<string, number> = {};
       
-      if (body.answers && body.correctAnswers && body.answers.length > 0) {
+      if (body.answers && body.questionIds && body.answers.length > 0) {
+        const dbQuestions = await storage.getQuestionsCorrectIndexByIds(body.questionIds);
+        if (dbQuestions.length !== body.questionIds.length) {
+          return res.status(400).json({ error: "invalid_question_ids", message: "One or more question IDs not found" });
+        }
+        correctIndexMap = Object.fromEntries(dbQuestions.map((q) => [q.id, q.correctIndex]));
         const correctCount = body.answers.reduce((count, answer, idx) => {
-          return count + (answer === body.correctAnswers![idx] ? 1 : 0);
+          const questionId = body.questionIds![idx];
+          const correctIndex = correctIndexMap[questionId];
+          return count + (answer === correctIndex ? 1 : 0);
         }, 0);
         scorePct = correctCount / body.answers.length;
       }
@@ -1226,7 +1245,6 @@ export async function registerRoutes(
         topics: [],
         timestamp: new Date().toISOString(),
         answersGiven: body.answers || [],
-        correctAnswers: body.correctAnswers || [],
         scorePct,
         attemptDurationSec,
       };
@@ -1265,15 +1283,17 @@ export async function registerRoutes(
       
       const netCost = feeHive - feeSettlement.refundHive;
       const stakeAfter = currentStake - netCost;
-      await storage.updateStakeBalance(publicKey, stakeAfter.toFixed(8));
-      
-      await storage.createStakeLedgerEntry({
+      await storage.settleTrainingFeeAtomic({
         walletAddress: publicKey,
-        amount: (-netCost).toFixed(8),
-        balanceAfter: stakeAfter.toFixed(8),
-        reason: passed ? "training_fee_passed" : "training_fee_failed",
         attemptId: attempt.id,
-        metadata: { difficulty: body.difficulty, feeHive, netCost, refundHive: feeSettlement.refundHive, scorePct, passed },
+        netCost,
+        stakeAfter,
+        passed,
+        difficulty: body.difficulty,
+        feeHive,
+        refundHive: feeSettlement.refundHive,
+        scorePct,
+        costHive: feeSettlement.costHive,
       });
       
       await audit.log(passed ? "fee_settled_pass" : "fee_settled_fail", {
@@ -1283,8 +1303,6 @@ export async function registerRoutes(
       });
       
       if (feeSettlement.costHive > 0) {
-        await storage.addToRewardsPool(feeSettlement.costHive.toFixed(8));
-        
         await audit.log("fee_routed_to_rewards", {
           targetType: "rewards_pool",
           targetId: attempt.id,
@@ -1328,19 +1346,24 @@ export async function registerRoutes(
           body.questionIds.length === body.answers.length &&
           body.answers.length > 0) {
         try {
-          const answerEvents = body.answers.map((answer, idx) => ({
+          const answerEvents = body.answers.map((answer, idx) => {
+            const questionId = body.questionIds![idx];
+            const correctIndex = correctIndexMap[questionId] ?? -1;
+            const isCorrect = answer === correctIndex;
+            return {
             walletAddress: publicKey,
             attemptId: attempt.id,
             trackId: body.trackId,
-            questionId: body.questionIds![idx],
+            questionId,
             selectedAnswer: answer,
-            isCorrect: body.correctAnswers ? answer === body.correctAnswers[idx] : false,
+            isCorrect,
             scorePct: scorePct.toFixed(4),
             attemptDurationSec,
             levelAtTime: body.levelAtTime,
             autoDecision: reviewResult.decision,
             cycleNumber: currentCycle.cycleNumber,
-          }));
+          };
+          });
           
           const loggedCount = await storage.createAnswerEventsBatch(answerEvents);
           
@@ -1385,7 +1408,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/train-attempts/pending", async (req: Request, res: Response) => {
+  app.get("/api/train-attempts/pending", requireAuthMiddleware, async (req: Request, res: Response) => {
     if (!(await requireReviewer(req, res))) return;
     
     try {
@@ -1396,7 +1419,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/train-attempts/:id", async (req: Request, res: Response) => {
+  app.get("/api/train-attempts/:id", requireAuthMiddleware, async (req: Request, res: Response) => {
     const userId = requireAuth(req, res);
     if (!userId) return;
     
@@ -1424,7 +1447,7 @@ export async function registerRoutes(
     vote: z.enum(["approve", "reject"]),
   });
 
-  app.post("/api/reviews/submit", reviewLimiter, async (req: Request, res: Response) => {
+  app.post("/api/reviews/submit", requireAuthMiddleware, reviewLimiter, async (req: Request, res: Response) => {
     const audit = createAuditHelper(req);
     const reviewerId = await requireReviewer(req, res);
     if (!reviewerId) return;
@@ -1553,9 +1576,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/hub/submissions/pending", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
-    
+  app.get("/api/hub/submissions/pending", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     try {
       const submissions = await storage.getPendingHubSubmissions();
       res.json(submissions);
@@ -1564,9 +1585,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/hub/submissions/:id/approve", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
-    
+  app.post("/api/hub/submissions/:id/approve", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     try {
       const submission = await storage.getHubSubmissionById(req.params.id);
       if (!submission) {
@@ -1595,9 +1614,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/hub/submissions/:id/reject", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
-    
+  app.post("/api/hub/submissions/:id/reject", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     try {
       const updated = await storage.updateHubSubmissionStatus(req.params.id, "rejected");
       // Rejected = full refund (handled on frontend)
@@ -1608,31 +1625,76 @@ export async function registerRoutes(
   });
 
   // ===== ADMIN =====
-  app.get("/api/admin/users", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
-    
-    // Simplified - in real app, add pagination
-    res.json({ message: "User list endpoint - implement as needed" });
+  // Bootstrap status: public, indicates if bootstrap is still allowed (dev OR no admin exists)
+  app.get("/api/admin/bootstrap-status", async (req: Request, res: Response) => {
+    try {
+      const hasAdmin = await storage.hasAnyAdmin();
+      const isDev = process.env.NODE_ENV === "development";
+      const bootstrapAllowed = isDev || !hasAdmin;
+      res.json({ bootstrapAllowed });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Bootstrap status error", details: error });
+      res.status(500).json({ bootstrapAllowed: false });
+    }
   });
 
-  app.post("/api/admin/users/:id/role", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
-    
+  // Bootstrap first admin: POST { key } with valid session. Disabled once any admin exists.
+  const bootstrapSchema = z.object({ key: z.string() });
+  app.post("/api/admin/bootstrap", requireAuthMiddleware, async (req: Request, res: Response) => {
+    const audit = createAuditHelper(req);
     try {
-      const { role, value } = req.body;
-      if (!["reviewer", "hubPoster", "admin"].includes(role)) {
-        return res.status(400).json({ error: "Invalid role" });
+      const body = bootstrapSchema.parse(req.body);
+      const bootstrapKey = process.env.BOOTSTRAP_ADMIN_KEY;
+      if (!bootstrapKey || bootstrapKey.length < 32) {
+        return res.status(403).json({ error: "Bootstrap not configured", code: "BOOTSTRAP_DISABLED" });
       }
-      
-      const user = await storage.updateUserRole(req.params.id, role, value);
+      if (body.key !== bootstrapKey) {
+        await audit.log("login_failure", { targetType: "user", metadata: { reason: "bootstrap_invalid_key" } });
+        return res.status(403).json({ error: "Invalid bootstrap key", code: "INVALID_KEY" });
+      }
+      const hasAdmin = await storage.hasAnyAdmin();
+      if (hasAdmin) {
+        return res.status(403).json({ error: "Bootstrap disabled - admin already exists", code: "BOOTSTRAP_DISABLED" });
+      }
+      const walletAddress = (req as any).walletAddress;
+      await storage.ensureWalletUser(walletAddress);
+      const user = await storage.updateUserRole(walletAddress, "admin", true);
+      await audit.log("admin_action", { targetType: "user", targetId: user.id, metadata: { action: "bootstrap_admin" } });
+      res.json({ success: true, user: { id: user.id, username: user.username, isAdmin: true } });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors, code: "VALIDATION_ERROR" });
+      }
+      logger.error({ requestId: req.requestId, error: "Bootstrap error", details: error });
+      res.status(500).json({ error: "Bootstrap failed" });
+    }
+  });
+
+  app.get("/api/admin/users", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
+    try {
+      const search = (req.query.search as string) || "";
+      const list = await storage.getUsers(search);
+      res.json({ users: list });
+    } catch (error) {
+      logger.error({ requestId: req.requestId, error: "Get admin users error", details: error });
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/role", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { role } = req.body;
+      if (role !== "user" && role !== "admin") {
+        return res.status(400).json({ error: "Invalid role. Must be 'user' or 'admin'" });
+      }
+      const user = await storage.updateUserRole(req.params.id, "admin", role === "admin");
       res.json(user);
     } catch (error) {
       res.status(500).json({ error: "Failed to update user role" });
     }
   });
 
-  app.get("/api/admin/model-status", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
+  app.get("/api/admin/model-status", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     
     try {
       const activeModel = await storage.getActiveModelVersion();
@@ -1649,8 +1711,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/training-pool", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
+  app.get("/api/admin/training-pool", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     
     try {
       const amount = await storage.getTrainingPoolAmount();
@@ -1660,8 +1721,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/pending-attempts", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
+  app.get("/api/admin/pending-attempts", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     
     try {
       const pendingAttempts = await storage.getPendingAttempts();
@@ -1679,8 +1739,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/rewards-pool", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
+  app.get("/api/admin/rewards-pool", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     
     try {
       const pool = await storage.getRewardsPool();
@@ -1695,8 +1754,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/auto-review-config", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
+  app.get("/api/admin/auto-review-config", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     
     try {
       const { getAutoReviewConfig } = await import("./services/autoReview");
@@ -1743,8 +1801,7 @@ export async function registerRoutes(
     }
   };
 
-  app.get("/api/admin/files/list", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
+  app.get("/api/admin/files/list", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     
     try {
       const clientSrcPath = join(process.cwd(), "client", "src");
@@ -1759,8 +1816,7 @@ export async function registerRoutes(
   });
 
   // Read a file
-  app.get("/api/admin/files/read", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
+  app.get("/api/admin/files/read", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     if (!checkAdminKey(req)) {
       return res.status(403).json({ error: "Admin key required" });
     }
@@ -1803,8 +1859,7 @@ export async function registerRoutes(
   });
 
   // Save a file
-  app.post("/api/admin/files/save", async (req: Request, res: Response) => {
-    if (!(await requireAdmin(req, res))) return;
+  app.post("/api/admin/files/save", requireAuthMiddleware, requireAdminMiddleware, async (req: Request, res: Response) => {
     if (!checkAdminKey(req)) {
       return res.status(403).json({ error: "Admin key required" });
     }
@@ -1896,7 +1951,7 @@ export async function registerRoutes(
   });
 
   // ===== USER LOCKS =====
-  app.get("/api/locks", async (req: Request, res: Response) => {
+  app.get("/api/locks", requireAuthMiddleware, async (req: Request, res: Response) => {
     const userId = requireAuth(req, res);
     if (!userId) return;
     

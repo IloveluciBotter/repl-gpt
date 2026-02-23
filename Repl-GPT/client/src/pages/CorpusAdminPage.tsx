@@ -22,10 +22,10 @@ interface Track {
 }
 
 interface CorpusAdminPageProps {
-  isCreator: boolean;
+  isAdmin: boolean;
 }
 
-export function CorpusAdminPage({ isCreator }: CorpusAdminPageProps) {
+export function CorpusAdminPage({ isAdmin }: CorpusAdminPageProps) {
   const [items, setItems] = useState<CorpusItem[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,12 +110,12 @@ export function CorpusAdminPage({ isCreator }: CorpusAdminPageProps) {
   };
 
   useEffect(() => {
-    if (!isCreator) {
+    if (!isAdmin) {
       setLoading(false);
       return;
     }
     loadData();
-  }, [isCreator]);
+  }, [isAdmin]);
 
   const loadData = async () => {
     setLoading(true);
@@ -180,7 +180,7 @@ export function CorpusAdminPage({ isCreator }: CorpusAdminPageProps) {
     }
   };
 
-  if (!isCreator) {
+  if (!isAdmin) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center py-12">

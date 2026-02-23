@@ -7,6 +7,7 @@ import {
   authenticateWallet,
   checkWalletAccess,
   checkIsCreator,
+  checkIsAdmin,
 } from "@/lib/wallet";
 
 export function useWallet() {
@@ -15,14 +16,18 @@ export function useWallet() {
 
   const refreshAccess = useCallback(async (publicKey: string) => {
     try {
-      const access = await checkWalletAccess(publicKey);
-      const isCreator = await checkIsCreator();
+      const [access, isCreator, isAdmin] = await Promise.all([
+        checkWalletAccess(publicKey),
+        checkIsCreator(),
+        checkIsAdmin(),
+      ]);
       setWallet((prev) => ({
         ...prev,
         hiveBalance: access.hiveAmount,
         requiredHive: access.requiredHiveAmount,
         hasAccess: access.hasAccess,
         isCreator,
+        isAdmin,
       }));
     } catch (error) {
       console.error("Failed to refresh access:", error);
@@ -114,6 +119,7 @@ export function useWallet() {
           authenticated: false,
           hasAccess: false,
           isCreator: false,
+          isAdmin: false,
         }));
       } else {
         setWallet(initialWalletState);

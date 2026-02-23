@@ -28,6 +28,7 @@ export interface WalletState {
   requiredHive: number;
   hasAccess: boolean;
   isCreator: boolean;
+  isAdmin: boolean;
 }
 
 export const initialWalletState: WalletState = {
@@ -38,6 +39,7 @@ export const initialWalletState: WalletState = {
   requiredHive: 50,
   hasAccess: false,
   isCreator: false,
+  isAdmin: false,
 };
 
 export async function connectWallet(): Promise<{
@@ -135,6 +137,15 @@ export async function checkIsCreator(): Promise<boolean> {
   try {
     const result = await api.auth.isCreator();
     return result.isCreator;
+  } catch {
+    return false;
+  }
+}
+
+export async function checkIsAdmin(): Promise<boolean> {
+  try {
+    const me = await api.auth.me();
+    return me.isAdmin;
   } catch {
     return false;
   }

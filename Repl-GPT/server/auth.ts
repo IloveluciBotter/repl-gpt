@@ -275,6 +275,26 @@ export function requireCreator(
   next();
 }
 
+/** App-level admin: checks DB isAdmin for the authenticated user (req.walletAddress). Must run after requireAuth. */
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  const walletAddress = (req as any).walletAddress || (req as any).publicKey;
+  if (!walletAddress) {
+    res.status(401).json({ error: "Unauthorized", code: "NO_SESSION" });
+    return;
+  }
+  storage.getUser(walletAddress).then((user) => {
+    if (!user || !user.isAdmin) {
+      res.status(403).json({ error: "Admin access required", code: "ADMIN_REQUIRED" });
+      return;
+    }
+    (req as any).userId = walletAddress;
+    next();
+  }).catch((err) => {
+    console.error("[auth] requireAdmin error:", err);
+    res.status(500).json({ error: "Session validation failed" });
+  });
+}
+
 export async function revokeSession(sessionId: string): Promise<void> {
   await storage.revokeSession(sessionId);
 }

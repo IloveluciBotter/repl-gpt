@@ -2,11 +2,12 @@ import { Link, useLocation } from "wouter";
 import { Brain, MessageSquare, Database, Settings } from "lucide-react";
 
 interface NavigationProps {
-  isCreator: boolean;
+  isAdmin: boolean;
   hasAccess: boolean;
 }
 
-export function Navigation({ isCreator, hasAccess }: NavigationProps) {
+export function Navigation(props: NavigationProps) {
+  const { isAdmin, hasAccess } = props;
   const [location] = useLocation();
 
   const links = [
@@ -28,7 +29,7 @@ export function Navigation({ isCreator, hasAccess }: NavigationProps) {
       icon: Database,
       gated: false,
     },
-    ...(isCreator
+    ...(isAdmin
       ? [
           {
             href: "/corpus/admin",

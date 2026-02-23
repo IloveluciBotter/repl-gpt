@@ -1,3 +1,4 @@
+import "./env"; // must be first — validates required env vars before anything else
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";

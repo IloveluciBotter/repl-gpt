@@ -1,0 +1,18 @@
+{
+  "name": "HiveMind",
+  "symbol": "HIVE",
+  "description": "HiveMind is a token-gated community brain: members train and verify a shared AI that reflects the people who use it.",
+  "image": "https://0f74515e-986c-432d-9065-073460dbd419-00-2y1r62e6po7a5.picard.replit.dev/token/hive.png",
+  "external_url": "https://0f74515e-986c-432d-9065-073460dbd419-00-2y1r62e6po7a5.picard.replit.dev/",
+  "attributes": [
+    { "trait_type": "Type", "value": "Community AI Token" },
+    { "trait_type": "Supply", "value": "Fixed" },
+    { "trait_type": "Model", "value": "Skill-first" }
+  ],
+  "properties": {
+    "files": [
+      { "uri": "https://0f74515e-986c-432d-9065-073460dbd419-00-2y1r62e6po7a5.picard.replit.dev/token/hive.png", "type": "image/png" }
+    ],
+    "category": "image"
+  }
+}

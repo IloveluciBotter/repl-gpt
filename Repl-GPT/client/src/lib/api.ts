@@ -63,6 +63,15 @@ export const api = {
       ),
 
     isCreator: () => fetchApi<{ isCreator: boolean }>("/api/auth/is-creator"),
+    me: () =>
+      fetchApi<{
+        id: string;
+        username: string;
+        walletAddress: string;
+        isAdmin: boolean;
+        isReviewer: boolean;
+        isHubPoster: boolean;
+      }>("/api/me"),
   },
 
   gate: {
@@ -307,6 +316,16 @@ export const api = {
           extreme: number;
         };
       }>("/api/economy/config"),
+  },
+
+  admin: {
+    bootstrapStatus: () =>
+      fetchApi<{ bootstrapAllowed: boolean }>("/api/admin/bootstrap-status"),
+    bootstrap: (key: string) =>
+      fetchApi<{ success: boolean; user: { id: string; username: string; isAdmin: boolean } }>(
+        "/api/admin/bootstrap",
+        { method: "POST", body: JSON.stringify({ key }) }
+      ),
   },
 
   health: {

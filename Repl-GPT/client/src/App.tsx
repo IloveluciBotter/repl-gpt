@@ -6,6 +6,7 @@ import { TrainPage } from "@/pages/TrainPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { CorpusPage } from "@/pages/CorpusPage";
 import { CorpusAdminPage } from "@/pages/CorpusAdminPage";
+import { BootstrapAdminPage } from "@/pages/BootstrapAdminPage";
 import StatusPage from "@/pages/StatusPage";
 import LegalPage from "@/pages/LegalPage";
 import { useWallet } from "@/hooks/useWallet";
@@ -36,7 +37,7 @@ function App() {
         onDisconnect={disconnect}
         loading={loading}
       />
-      <Navigation isCreator={wallet.isCreator} hasAccess={wallet.hasAccess} />
+      <Navigation isAdmin={wallet.isAdmin} hasAccess={wallet.hasAccess} />
 
       <main>
         <Switch>
@@ -83,8 +84,12 @@ function App() {
               requiredHive={wallet.requiredHive}
               onConnect={connect}
             >
-              <CorpusAdminPage isCreator={wallet.isCreator} />
+              <CorpusAdminPage isAdmin={wallet.isAdmin} />
             </TokenGate>
+          </Route>
+
+          <Route path="/bootstrap-admin">
+            <BootstrapAdminPage />
           </Route>
 
           <Route path="/status">
