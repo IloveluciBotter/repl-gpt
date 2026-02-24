@@ -90,9 +90,10 @@ Set these environment variables on your hosting platform:
 
 ```bash
 # Required: HIVE token mint address
-HIVE_MINT=F3zvEFZVhDXNo1kZDPg24Z3RioDzCdEJVdnZ5FCcpump
+HIVE_MINT=YOUR_HIVE_MINT_ADDRESS
 
-# Required: Solana RPC endpoint (defaults to mainnet public RPC if not set)
+# Required: Solana RPC endpoint (defaults to mainnet public RPC if not set).
+# For production, use a provider URL with your key, e.g. https://mainnet.helius.xyz/?api-key=YOUR_RPC_KEY
 SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 
 # Required: Minimum USD value required for access (defaults to 1)
