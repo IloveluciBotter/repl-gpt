@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# builds
+dist/
+build/
+out/
+.next/
+.turbo/
+.cache/
+.vite/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Replit
+.replit
+.replit.bak
